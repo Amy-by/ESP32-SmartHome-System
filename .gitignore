@@ -1,0 +1,55 @@
+# Arduino IDE
+*.ino.cpp
+*.ino.map
+*.ino.elf
+*.ino.with_bootloader.hex
+*.ino.hex
+*.bin
+*.eep
+*.lss
+*.sym
+*.tmp
+*.swp
+*.bak
+*.orig
+
+# PlatformIO
+.pio
+.pioenvs
+.piolibdeps
+*.pioenvs
+*.piolibdeps
+
+# VS Code
+.vscode/
+*.code-workspace
+
+# CLion
+.idea/
+
+# Compilation output
+build/
+out/
+
+# Temporary files
+*.tmp
+*.temp
+*.swp
+.DS_Store
+Thumbs.db
+
+# Configuration files
+config.h.local
+secrets.h
+
+# Logs
+logs/
+*.log
+
+# Test files
+test_*
+
+# Web server files
+*.html
+*.css
+*.js
