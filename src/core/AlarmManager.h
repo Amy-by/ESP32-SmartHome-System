@@ -6,6 +6,8 @@
 #include "sensors/EnvironmentManager.h"
 #include "devices/DeviceManager.h"
 #include "utils/DataLogger.h"
+#include "utils/SPIFFSStorage.h"
+#include "definitions.h"
 
 /**
  * @brief 告警阈值结构体，定义传感器的告警阈值
@@ -46,7 +48,7 @@ public:
      * @brief 构造函数
      * @param dataLogger 数据记录器指针
      */
-    AlarmManager(DataLogger* dataLogger);
+    AlarmManager(DataLogger* dataLogger, SPIFFSStorage* storage = nullptr);
     
     /**
      * @brief 析构函数
@@ -120,11 +122,20 @@ public:
      */
     bool clearAllAlarms();
     
+    void setBuzzer(String id);
+    void muteBuzzerUntilNormal();
+    void resetBuzzerMute();
+    bool syncBuzzer(DeviceManager& deviceManager);
+    
 private:
     std::vector<AlarmThreshold> thresholds;    // 告警阈值列表
     std::vector<AlarmStatus> activeAlarms;     // 当前激活的告警列表
     std::vector<AlarmAction> alarmActions;     // 告警联动动作列表
     DataLogger* dataLogger;                    // 数据记录器指针
+    SPIFFSStorage* storage;                    // 存储指针（用于持久化配置）
+    String buzzerId;
+    bool buzzerMuted = false;
+    bool lastBuzzerState = false;
     
     /**
      * @brief 触发告警
@@ -133,6 +144,19 @@ private:
      * @param message 告警消息
      */
     void triggerAlarm(String sensorId, float currentValue, String message);
+    
+public:
+    /**
+     * @brief 从存储加载阈值配置
+     * @return 成功返回true，失败返回false
+     */
+    bool loadFromStorage();
+    
+    /**
+     * @brief 保存当前阈值配置到存储
+     * @return 成功返回true，失败返回false
+     */
+    bool saveToStorage();
 };
 
 #endif // ALARMMANAGER_H

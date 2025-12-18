@@ -9,11 +9,14 @@ TemperatureSensor::TemperatureSensor(String sensorId, int gpioPin, int sensorTyp
     
     // 创建DHT传感器实例
     dhtSensor = new DHT(gpioPin, sensorType);
+    ownsDHT = true;
 }
 
 TemperatureSensor::~TemperatureSensor() {
     // 释放DHT传感器实例
-    delete dhtSensor;
+    if (ownsDHT && dhtSensor != nullptr) {
+        delete dhtSensor;
+    }
     dhtSensor = nullptr;
 }
 
@@ -23,7 +26,9 @@ bool TemperatureSensor::initialize() {
     }
     
     // 初始化DHT传感器
-    dhtSensor->begin();
+    if (ownsDHT) {
+        dhtSensor->begin();
+    }
     initialized = true;
     return true;
 }
@@ -32,18 +37,26 @@ float TemperatureSensor::readData() {
     if (!initialized || dhtSensor == nullptr) {
         return NAN;
     }
-    
-    // 读取温度值
+
     float temperature = dhtSensor->readTemperature();
-    
-    // 检查是否读取成功
+
+    // 如果温度无效，直接返回
     if (isnan(temperature)) {
         return NAN;
     }
-    
-    // 保存上次读取的温度值
+
     lastTemperature = temperature;
     return temperature;
+}
+
+TemperatureSensor::TemperatureSensor(String sensorId, DHT* sharedDht, int gpioPin, int sensorType) {
+    this->sensorId = sensorId;
+    this->gpioPin = gpioPin;
+    this->sensorType = sensorType;
+    this->lastTemperature = 0.0;
+    this->initialized = false;
+    this->dhtSensor = sharedDht;
+    this->ownsDHT = false;
 }
 
 String TemperatureSensor::getType() {

@@ -8,7 +8,7 @@
 
 - **API前缀**：`/api/`
 - **响应格式**：JSON
-- **支持的HTTP方法**：GET, POST
+- **支持的HTTP方法**：GET, POST, PUT
 - **服务器地址**：ESP32的IP地址，端口80
 - **示例请求URL**：`http://192.168.1.100/api/devices`
 
@@ -99,8 +99,8 @@
 ```json
 {
     "id": "light_1",
-    "status": true,  // 可选，设备开关状态
-    "brightness": 50  // 可选，仅智能灯支持（0-100）
+    "status": true,
+    "brightness": 50
 }
 ```
 
@@ -117,6 +117,13 @@
     "message": "设备控制成功"
 }
 ```
+
+### 2.4 蜂鸣器控制说明（低电平触发）
+
+- 系统中的蜂鸣器以开关设备形式接入，设备ID例如：`buzzer_001`
+- 逻辑与电平关系：初始化为高电平（关闭），开启为低电平（触发）
+- 通过`/api/devices/control`设置`{ "id": "buzzer_001", "status": true }`即可打开蜂鸣器，设置`false`关闭
+- 前端“鸣叫一次”通过打开后延迟再关闭实现，示例见“API使用示例”
 
 ## 3. 环境监测API
 
@@ -357,6 +364,27 @@ ws.onerror = (error) => {
 };
 ```
 
+### 6.7 蜂鸣器鸣叫一次（300/500/1000ms预设）
+
+```javascript
+function controlDevice(deviceId, params) {
+  const body = Object.assign({ id: deviceId }, params);
+  fetch('/api/devices/control', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body)
+  });
+}
+
+function beepOnce(deviceId, durationMs) {
+  controlDevice(deviceId, { status: true });
+  setTimeout(() => controlDevice(deviceId, { status: false }), durationMs);
+}
+
+// 示例：buzzer_001鸣叫500ms
+beepOnce('buzzer_001', 500);
+```
+
 ## 7. 注意事项
 
 1. **设备ID唯一性**：每个设备ID必须唯一，由系统在设备添加时自动生成。
@@ -366,15 +394,71 @@ ws.onerror = (error) => {
 5. **WebSocket连接**：如果WebSocket连接断开，客户端应实现自动重连机制。
 6. **设备类型**：目前支持两种设备类型：
    - `SmartLight`：智能灯，支持开关和亮度调节
-   - `SmartSwitch`：智能开关，仅支持开关控制
+   - `SmartSwitch`：智能开关，仅支持开关控制（可用于蜂鸣器，支持低电平触发）
+   - `Buzzer`：蜂鸣器（以开关设备形式呈现，ID通常为`buzzer_***`，低电平触发；API中的`type`字段可能显示为`switch`）
 7. **亮度范围**：智能灯的亮度值范围为0-100，0表示关闭，100表示最亮。
 
 ## 8. API版本控制
 
 当前API版本为V1，未来如有重大变更，将通过URL路径区分不同版本，例如：`/api/v2/devices`。
 
+## 9. 告警阈值API
+
+### 9.1 获取烟雾告警阈值
+
+- **接口路径**：`/api/alarm`
+- **请求方法**：GET
+- **功能**：获取当前烟雾传感器的阈值设置（支持下限与上限）
+
+**响应示例**：
+
+```json
+{
+  "status": "success",
+  "message": "获取告警阈值成功",
+  "alarm": {
+    "sensorId": "smoke",
+    "minThreshold": -1,
+    "maxThreshold": 500,
+    "enabled": true
+  }
+}
+```
+
+### 9.2 更新烟雾告警阈值
+
+- **接口路径**：`/api/alarm`
+- **请求方法**：PUT（也支持POST）
+- **功能**：更新烟雾传感器的阈值设置，并持久化到SPIFFS
+
+**请求体**：
+
+```json
+{
+  "sensorId": "smoke",
+  "minThreshold": -1,
+  "maxThreshold": 500,
+  "enabled": true
+}
+```
+
+**参数说明**：
+- `sensorId`：传感器ID，默认`smoke`
+- `minThreshold`：最小阈值，`-1`表示不设下限
+- `maxThreshold`：最大阈值，`-1`表示不设上限
+- `enabled`：是否启用当前阈值设置
+
+**响应示例**：
+
+```json
+{
+  "status": "success",
+  "message": "更新告警阈值成功"
+}
+```
+
 ---
 
-**文档版本**：1.0  
-**更新日期**：2024年1月20日  
+**文档版本**：1.1  
+**更新日期**：2025年12月17日  
 **作者**：ESP32智能家居控制系统开发团队

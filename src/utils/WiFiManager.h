@@ -9,6 +9,9 @@ public:
     // 构造函数
     WiFiManager(String ssid, String password);
     
+    // 更新WiFi凭据
+    void setCredentials(const String& ssid, const String& password);
+    
     // 连接到WiFi网络
     bool connect();
     
@@ -39,6 +42,9 @@ public:
     // 设置ESP32为AP模式
     bool setupAP(String apSSID, String apPassword);
     
+    // 更新WiFi状态（自动重连等）
+    void update();
+    
 private:
     String _ssid;
     String _password;
@@ -48,7 +54,7 @@ private:
     void (*_onDisconnectCallback)() = nullptr;
     
     // 连接超时时间（毫秒）
-    static const int CONNECT_TIMEOUT = 10000;
+    static const int CONNECT_TIMEOUT = 30000;
 };
 
 #endif // WIFIMANAGER_H

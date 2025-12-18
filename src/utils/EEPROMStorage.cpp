@@ -179,7 +179,7 @@ bool EEPROMStorage::readRule(const String &ruleId, Rule &rule) {
     
     // 读取条件部分
     address += readString(address, rule.condition.sensorType);
-    address += readString(address, rule.condition.operator);
+    address += readString(address, rule.condition.op);
     EEPROM.get(address, rule.condition.threshold);
     address += sizeof(rule.condition.threshold);
     
@@ -235,7 +235,7 @@ bool EEPROMStorage::writeRule(const Rule &rule) {
     
     // 写入条件部分
     address += writeString(address, rule.condition.sensorType);
-    address += writeString(address, rule.condition.operator);
+    address += writeString(address, rule.condition.op);
     EEPROM.put(address, rule.condition.threshold);
     address += sizeof(rule.condition.threshold);
     
@@ -270,7 +270,7 @@ bool EEPROMStorage::readAllRules(Rule *rules, int &count) {
         
         // 读取条件部分
         address += readString(address, rule.condition.sensorType);
-        address += readString(address, rule.condition.operator);
+        address += readString(address, rule.condition.op);
         EEPROM.get(address, rule.condition.threshold);
         address += sizeof(rule.condition.threshold);
         
@@ -465,18 +465,21 @@ int EEPROMStorage::readString(int address, String &str) {
     int length = EEPROM.read(address);
     address++;
     
-    if (length > 0) {
-        char buffer[100]; // 最大字符串长度为100
-        for (int i = 0; i < length && i < 99; i++) {
-            buffer[i] = EEPROM.read(address + i);
-        }
-        buffer[length] = '\0';
-        str = String(buffer);
-    } else {
+    if (length <= 0) {
         str = "";
+        return 1;
     }
     
-    return length + 1; // 返回读取的总字节数（包括长度字节）
+    int maxLen = 99;
+    int readLen = length > maxLen ? maxLen : length;
+    char buffer[100];
+    for (int i = 0; i < readLen; i++) {
+        buffer[i] = EEPROM.read(address + i);
+    }
+    buffer[readLen] = '\0';
+    str = String(buffer);
+    
+    return length + 1;
 }
 
 int EEPROMStorage::writeString(int address, const String &str) {

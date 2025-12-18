@@ -25,13 +25,11 @@ bool SmartLight::getStatus() {
 
 bool SmartLight::setStatus(bool status) {
     this->status = status;
-    
     if (status) {
-        // 开启灯光并设置当前亮度
         gpio.analogWrite(gpioPin, brightness);
     } else {
-        // 关闭灯光
-        gpio.digitalWrite(gpioPin, LOW);
+        // 关闭时必须强制设为0，否则灯可能关不掉
+        gpio.analogWrite(gpioPin, 0);
     }
     
     return true;
@@ -56,7 +54,8 @@ bool SmartLight::setBrightness(int brightness) {
     
     this->brightness = brightness;
     
-    // 如果灯光当前是开启状态，立即更新PWM值
+    // 只有当灯光是开启状态时，才更新PWM值
+    // 如果是关闭状态，只保存亮度值，不输出PWM，防止“关灯调节亮度”导致灯亮
     if (status) {
         gpio.analogWrite(gpioPin, brightness);
     }

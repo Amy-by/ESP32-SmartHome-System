@@ -23,6 +23,9 @@ public:
     // 设置GPIO引脚PWM输出值
     bool analogWrite(int pin, int value);
     
+    // 配置GPIO引脚的PWM参数（频率与分辨率）
+    bool setPWMPin(int pin, int frequency, int resolution);
+    
     // 为GPIO引脚添加中断
     bool attachInterrupt(int pin, void (*callback)(), int mode);
     

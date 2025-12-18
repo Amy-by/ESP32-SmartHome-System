@@ -24,7 +24,7 @@ typedef struct {
 // 规则条件结构体
 typedef struct {
     String sensorType;
-    String operator;  // >, <, ==, !=, >=, <=
+    String op;  // >, <, ==, !=, >=, <=
     float threshold;
 } RuleCondition;
 

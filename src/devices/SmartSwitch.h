@@ -15,8 +15,9 @@ public:
      * @brief 构造函数，初始化智能开关对象
      * @param deviceId 设备ID
      * @param gpioPin GPIO引脚
+     * @param activeLow 是否低电平触发（默认为false）
      */
-    SmartSwitch(String deviceId, int gpioPin);
+    SmartSwitch(String deviceId, int gpioPin, bool activeLow = false);
     
     /**
      * @brief 析构函数
@@ -64,6 +65,7 @@ private:
     String deviceId;          // 设备ID
     int gpioPin;              // GPIO引脚
     bool status;              // 设备状态
+    bool activeLow;           // 是否低电平触发
     GPIOController gpio;      // GPIO控制器实例
 };
 

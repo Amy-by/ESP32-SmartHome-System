@@ -9,11 +9,14 @@ HumiditySensor::HumiditySensor(String sensorId, int gpioPin, int sensorType) {
     
     // 创建DHT传感器实例
     dhtSensor = new DHT(gpioPin, sensorType);
+    ownsDHT = true;
 }
 
 HumiditySensor::~HumiditySensor() {
     // 释放DHT传感器实例
-    delete dhtSensor;
+    if (ownsDHT && dhtSensor != nullptr) {
+        delete dhtSensor;
+    }
     dhtSensor = nullptr;
 }
 
@@ -23,7 +26,9 @@ bool HumiditySensor::initialize() {
     }
     
     // 初始化DHT传感器
-    dhtSensor->begin();
+    if (ownsDHT) {
+        dhtSensor->begin();
+    }
     initialized = true;
     return true;
 }
@@ -46,6 +51,15 @@ float HumiditySensor::readData() {
     return humidity;
 }
 
+HumiditySensor::HumiditySensor(String sensorId, DHT* sharedDht, int gpioPin, int sensorType) {
+    this->sensorId = sensorId;
+    this->gpioPin = gpioPin;
+    this->sensorType = sensorType;
+    this->lastHumidity = 0.0;
+    this->initialized = false;
+    this->dhtSensor = sharedDht;
+    this->ownsDHT = false;
+}
 String HumiditySensor::getType() {
     return "humidity";
 }

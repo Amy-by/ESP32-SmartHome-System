@@ -1,5 +1,6 @@
 #include <WiFi.h>
 #include <ArduinoJson.h>
+#include <DHT.h>
 #include "src/devices/DeviceManager.h"
 #include "src/devices/SmartLight.h"
 #include "src/devices/SmartSwitch.h"
@@ -10,11 +11,10 @@
 #include "src/sensors/SmokeSensor.h"
 #include "src/utils/WiFiManager.h"
 #include "src/web/WebServer.h"
-#include "webpage.h" // 引入HTML网页内容
 
 // WiFi配置
-const char* ssid = "your_wifi_ssid";
-const char* password = "your_wifi_password";
+const char* ssid = "POWERWAY-R&D";
+const char* password = "powerway168";
 
 // 设备和传感器引脚定义
 const int ledPin = 2; // ESP32板载LED
@@ -54,6 +54,8 @@ void setup() {
     webServer.initialize();
     webServer.start();
     Serial.println("Web服务器已启动");
+    Serial.print("Device count after init: ");
+    Serial.println(deviceManager.getAllDevices().size());
 }
 
 void loop() {
@@ -74,19 +76,19 @@ void loop() {
 // 初始化设备
 void initializeDevices() {
     // 创建智能灯
-    SmartLight* livingRoomLight = new SmartLight("light_001", "客厅灯", smartLightPin);
+    SmartLight* livingRoomLight = new SmartLight("light_001", smartLightPin);
     if (deviceManager.addDevice(livingRoomLight)) {
         Serial.println("客厅灯已添加");
     }
     
     // 创建智能开关
-    SmartSwitch* fanSwitch = new SmartSwitch("switch_001", "风扇开关", smartSwitchPin);
+    SmartSwitch* fanSwitch = new SmartSwitch("switch_001", smartSwitchPin);
     if (deviceManager.addDevice(fanSwitch)) {
         Serial.println("风扇开关已添加");
     }
     
     // 创建板载LED灯
-    SmartLight* onboardLed = new SmartLight("light_002", "板载LED", ledPin);
+    SmartLight* onboardLed = new SmartLight("light_002", ledPin);
     if (deviceManager.addDevice(onboardLed)) {
         Serial.println("板载LED已添加");
     }
@@ -95,25 +97,25 @@ void initializeDevices() {
 // 初始化传感器
 void initializeSensors() {
     // 创建温度传感器
-    TemperatureSensor* temperatureSensor = new TemperatureSensor("temp_001", "温度传感器", dhtPin);
+    TemperatureSensor* temperatureSensor = new TemperatureSensor("temp_001", dhtPin, DHT11);
     if (environmentManager.addSensor(temperatureSensor)) {
         Serial.println("温度传感器已添加");
     }
     
     // 创建湿度传感器
-    HumiditySensor* humiditySensor = new HumiditySensor("hum_001", "湿度传感器", dhtPin);
+    HumiditySensor* humiditySensor = new HumiditySensor("hum_001", dhtPin, DHT11);
     if (environmentManager.addSensor(humiditySensor)) {
         Serial.println("湿度传感器已添加");
     }
     
     // 创建光照传感器
-    LightSensor* lightSensor = new LightSensor("light_001", "光照传感器", lightSensorPin);
+    LightSensor* lightSensor = new LightSensor("light_001");
     if (environmentManager.addSensor(lightSensor)) {
         Serial.println("光照传感器已添加");
     }
     
     // 创建烟雾传感器
-    SmokeSensor* smokeSensor = new SmokeSensor("smoke_001", "烟雾传感器", smokeSensorPin);
+    SmokeSensor* smokeSensor = new SmokeSensor("smoke_001", smokeSensorPin);
     if (environmentManager.addSensor(smokeSensor)) {
         Serial.println("烟雾传感器已添加");
     }

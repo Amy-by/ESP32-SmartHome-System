@@ -109,10 +109,10 @@ bool SPIFFSStorage::writeJsonFile(const String &filePath, const JsonDocument &do
     }
     
     // 序列化JSON到文件
-    SerializationError error = serializeJson(doc, file);
+    size_t written = serializeJson(doc, file);
     file.close();
     
-    return error == SerializationError::Ok;
+    return written > 0;
 }
 
 bool SPIFFSStorage::deleteFile(const String &filePath) {
@@ -160,9 +160,7 @@ size_t SPIFFSStorage::getTotalSize() {
         return 0;
     }
     
-    FSInfo fs_info;
-    SPIFFS.info(fs_info);
-    return fs_info.totalBytes;
+    return SPIFFS.totalBytes();
 }
 
 size_t SPIFFSStorage::getUsedSize() {
@@ -170,9 +168,7 @@ size_t SPIFFSStorage::getUsedSize() {
         return 0;
     }
     
-    FSInfo fs_info;
-    SPIFFS.info(fs_info);
-    return fs_info.usedBytes;
+    return SPIFFS.usedBytes();
 }
 
 size_t SPIFFSStorage::getFreeSize() {
@@ -180,9 +176,7 @@ size_t SPIFFSStorage::getFreeSize() {
         return 0;
     }
     
-    FSInfo fs_info;
-    SPIFFS.info(fs_info);
-    return fs_info.totalBytes - fs_info.usedBytes;
+    return SPIFFS.totalBytes() - SPIFFS.usedBytes();
 }
 
 bool SPIFFSStorage::format() {

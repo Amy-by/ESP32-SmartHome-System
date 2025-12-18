@@ -1,14 +1,17 @@
 // WebServer.h - Web服务器类头文件
 // 实现ESP32智能家居控制系统的Web服务器功能，包括API接口和网页界面
 
-#ifndef WEBSERVER_H
-#define WEBSERVER_H
+#ifndef SMART_HOME_WEBSERVER_H
+#define SMART_HOME_WEBSERVER_H
 
+#include <Arduino.h>
+#include <WiFi.h>
 #include <ESPAsyncWebServer.h>
 #include <ArduinoJson.h>
 #include "../devices/DeviceManager.h"
 #include "../sensors/EnvironmentManager.h"
 #include "../utils/WiFiManager.h"
+#include "../core/AlarmManager.h"
 
 class WebServer {
 public:
@@ -17,8 +20,9 @@ public:
      * @param deviceManager 设备管理器实例
      * @param environmentManager 环境管理器实例
      * @param wiFiManager WiFi管理器实例
+     * @param alarmManager 告警管理器实例
      */
-    WebServer(DeviceManager& deviceManager, EnvironmentManager& environmentManager, WiFiManager& wiFiManager);
+    WebServer(DeviceManager& deviceManager, EnvironmentManager& environmentManager, WiFiManager& wiFiManager, AlarmManager& alarmManager);
     
     /**
      * @brief WebServer析构函数
@@ -46,12 +50,15 @@ public:
      */
     bool isRunning() const;
     
+    void notifyDeviceUpdate(Device* device);
+    
 private:
     AsyncWebServer server;              // Web服务器实例
     AsyncWebSocket ws;                  // WebSocket实例
     DeviceManager& deviceManager;       // 设备管理器引用
     EnvironmentManager& environmentManager;  // 环境管理器引用
     WiFiManager& wiFiManager;           // WiFi管理器引用
+    AlarmManager& alarmManager;         // 告警管理器引用
     bool running;                       // 服务器运行状态
     
     // HTML网页内容
@@ -88,7 +95,7 @@ private:
      * @brief 处理设备控制API请求
      * @param request Web请求
      */
-    void handleControlDevice(AsyncWebServerRequest* request, JsonVariant& json);
+    void handleControlDevice(AsyncWebServerRequest* request, const JsonVariantConst& json);
     
     /**
      * @brief 处理环境数据API请求
@@ -103,12 +110,28 @@ private:
     void handleGetWiFiStatus(AsyncWebServerRequest* request);
     
     /**
+     * @brief 获取告警阈值设置
+     */
+    void handleGetAlarmSettings(AsyncWebServerRequest* request);
+    
+    /**
+     * @brief 更新告警阈值设置
+     */
+    void handleUpdateAlarmSettings(AsyncWebServerRequest* request, const JsonVariantConst& json);
+    
+    /**
      * @brief 发送JSON响应
      * @param request Web请求
      * @param doc JSON文档
      * @param code HTTP状态码
      */
     void sendJsonResponse(AsyncWebServerRequest* request, DynamicJsonDocument& doc, int code = 200);
+    
+    /**
+     * @brief 通过WebSocket广播设备状态更新
+     * @param device 已更新的设备指针
+     */
+    void broadcastDeviceUpdate(Device* device);
     
     /**
      * @brief WebSocket事件处理
@@ -123,4 +146,4 @@ private:
                                 void* arg, uint8_t* data, size_t len);
 };
 
-#endif /* WEBSERVER_H */
+#endif /* SMART_HOME_WEBSERVER_H */

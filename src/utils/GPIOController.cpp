@@ -95,3 +95,19 @@ bool GPIOController::setPWMResolution(int pin, int resolution) {
 bool GPIOController::isPinValid(int pin) {
     return (pin >= MIN_VALID_PIN && pin <= MAX_VALID_PIN);
 }
+
+bool GPIOController::setPWMPin(int pin, int frequency, int resolution) {
+    if (!isPinValid(pin)) {
+        return false;
+    }
+    if (frequency <= 0) {
+        frequency = 5000;
+    }
+    if (resolution < 1 || resolution > 16) {
+        resolution = 8;
+    }
+    int channel = pin % 16;
+    ledcSetup(channel, frequency, resolution);
+    ledcAttachPin(pin, channel);
+    return true;
+}

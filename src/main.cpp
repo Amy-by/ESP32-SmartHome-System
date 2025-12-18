@@ -1,156 +1,178 @@
-// main.cpp - ESP32智能家居控制系统主程序入口
-// 负责初始化各个模块并启动系统
-
 #include <Arduino.h>
+
 #include "devices/DeviceManager.h"
+#include "devices/SmartLight.h"
+#include "devices/SmartSwitch.h"
+
 #include "sensors/EnvironmentManager.h"
 #include "core/RuleEngine.h"
 #include "core/AlarmManager.h"
+
 #include "utils/WiFiManager.h"
 #include "utils/GPIOController.h"
+
 #include "web/WebServer.h"
 #include "utils/DataLogger.h"
-#include "utils/EEPROMStorage.h"
 #include "utils/SPIFFSStorage.h"
-#include "utils/DataProcessor.h"
-#include "include/config.h"
-#include "include/definitions.h"
-#include "include/types.h"
+#include "core/DataProcessor.h"
+#include "config.h"
 
-// 全局对象声明
-WiFiManager wiFiManager;
-GPIOController gpioController;
-DataProcessor dataProcessor;
-EEPROMStorage eepromStorage;
+#include "sensors/TemperatureSensor.h"
+#include "sensors/HumiditySensor.h"
+#include "sensors/LightSensor.h"
+#include "sensors/SmokeSensor.h"
+#include <DHT.h>
+
+// ===== 全局对象 =====
+WiFiManager wiFiManager(DEFAULT_WIFI_SSID, DEFAULT_WIFI_PASSWORD);
+DeviceManager deviceManager;                 // ✔ 正确：无参构造
+EnvironmentManager environmentManager;
+RuleEngine ruleEngine;
 SPIFFSStorage spiffsStorage;
-DataLogger dataLogger(eepromStorage, spiffsStorage);
-DeviceManager deviceManager(gpioController, eepromStorage, dataLogger);
-EnvironmentManager environmentManager(gpioController, dataProcessor, dataLogger);
-RuleEngine ruleEngine(deviceManager, environmentManager, eepromStorage);
-AlarmManager alarmManager(deviceManager, environmentManager, gpioController, dataLogger, eepromStorage);
-WebServer webServer(deviceManager, environmentManager, wiFiManager);
+DataLogger dataLogger(&spiffsStorage, "/logs.txt", DEFAULT_MAX_LOG_SIZE);
+AlarmManager alarmManager(&dataLogger, &spiffsStorage);
+WebServer webServer(deviceManager, environmentManager, wiFiManager, alarmManager);
 
-// 系统状态变量
-bool systemInitialized = false;
 
-/**
- * @brief 初始化系统
- */
-void initializeSystem() {
+// ===== 引脚定义 =====
+#define RELAY_PIN   5
+#define DHT_PIN     14
+#define LIGHT_PIN   32
+#define SMOKE_PIN   33
+#define BUZZER_PIN  17
+const int SMART_LIGHT_PIN = 2;
+#define SMART_SWITCH_PIN 12
+DHT dht(DHT_PIN, DHT11); 
+
+
+// ===== 初始化设备 =====
+void initializeDevices() {
+  bool ok;
+
+  ok = deviceManager.addDevice(
+      new SmartLight("light_001", SMART_LIGHT_PIN));
+  Serial.println(ok ? "Add light_001: OK" : "Add light_001: FAIL");
+
+  ok = deviceManager.addDevice(
+      new SmartSwitch("switch_001", SMART_SWITCH_PIN));
+  Serial.println(ok ? "Add switch_001: OK" : "Add switch_001: FAIL");
+
+  // 蜂鸣器 (作为开关设备)
+  // 用户反馈：activeLow=false 时一直响，尝试改回 true
+  // 硬件连接：GND, VCC(3V3), IO
+  // activeLow=true 意味着：
+  //   初始化状态 (关): 输出 HIGH (3.3V)
+  //   开启状态 (开): 输出 LOW (0V)
+  // 如果蜂鸣器是低电平触发（Low Trigger），则应设为 true
+  ok = deviceManager.addDevice(
+      new SmartSwitch("buzzer_001", BUZZER_PIN, true));
+  Serial.println(ok ? "Add buzzer_001: OK" : "Add buzzer_001: FAIL");
+}
+
+// ===== Arduino setup =====
+void setup() {
   Serial.begin(115200);
   delay(1000);
-  Serial.println("\n=== ESP32智能家居控制系统启动 ===");
+
+  Serial.println("=== SETUP START ===");
+
+  initializeDevices();
+
+  Serial.print("Device count after init: ");
+  Serial.println(deviceManager.getAllDevices().size());
+ 
+    // ====== 【加 DHT 硬件直读测试】 ======
+  Serial.println("=== DHT raw test ===");
+  dht.begin();                 // 必须
+  delay(2000);                 //  DHT 上电稳定
+  float t = dht.readTemperature();
+  float h = dht.readHumidity();
+  Serial.print("Raw DHT Temp: ");
+  Serial.println(t);
+  Serial.print("Raw DHT Humi: ");
+  Serial.println(h);
+  Serial.println("====================");
+  // ===============================================
+
+  Serial.println("=== Init Storage & Logger ===");
+  dataLogger.init();
   
-  // 1. 初始化存储
-  Serial.println("1. 初始化存储系统...");
-  if (eepromStorage.initialize()) {
-    Serial.println("   EEPROM存储初始化成功");
-  } else {
-    Serial.println("   EEPROM存储初始化失败");
+  Serial.println("=== Init Environment Sensors ===");
+  environmentManager.addSensor(new TemperatureSensor("temperature", &dht, DHT_PIN, DHT11));
+  environmentManager.addSensor(new HumiditySensor("humidity", &dht, DHT_PIN, DHT11));
+  environmentManager.addSensor(new LightSensor("light", LIGHT_PIN));
+  environmentManager.addSensor(new SmokeSensor("smoke", SMOKE_PIN));
+  environmentManager.initializeAllSensors();
+  Serial.println("=== Environment Sensors Ready ===");
+
+  // ===== 配置烟雾告警 =====
+  Serial.println("=== Init Alarm Manager ===");
+  // 尝试从存储加载已有阈值
+  bool loaded = alarmManager.loadFromStorage();
+  AlarmThreshold smokeExisting = alarmManager.getThreshold("smoke");
+  if (!loaded || (smokeExisting.maxThreshold == -1 && smokeExisting.minThreshold == -1)) {
+    AlarmThreshold smokeThreshold;
+    smokeThreshold.sensorId = "smoke";
+    smokeThreshold.minThreshold = -1;   // 不设下限
+    smokeThreshold.maxThreshold = 500;  // 超过500触发报警
+    smokeThreshold.enabled = true;
+    alarmManager.updateThreshold(smokeThreshold);
   }
+  alarmManager.setBuzzer("buzzer_001");
+
+  // (可选) 配置联动：报警时自动打开开关(如排风扇)
+  // AlarmAction turnOnFan;
+  // turnOnFan.deviceId = "switch_001";
+  // turnOnFan.targetStatus = true;
+  // alarmManager.addAlarmAction(turnOnFan);
+
+  // 联动配置 1：打开灯光 (视觉报警)
   
-  if (spiffsStorage.initialize()) {
-    Serial.println("   SPIFFS存储初始化成功");
-  } else {
-    Serial.println("   SPIFFS存储初始化失败");
+
+  // 联动配置 2：打开蜂鸣器 (听觉报警)
+  // [禁用默认联动] 避免因为烟雾传感器浮空导致蜂鸣器一直响无法关闭
+  // AlarmAction turnOnBuzzer;
+  // turnOnBuzzer.deviceId = "buzzer_001";
+  // turnOnBuzzer.targetStatus = true;
+  // alarmManager.addAlarmAction(turnOnBuzzer);
+  
+  Serial.println("=== Alarm Manager Ready ===");
+
+  if (!wiFiManager.connect()) {
+    Serial.println("WiFi连接失败，但系统继续运行");
   }
-  
-  // 2. 初始化GPIO控制器
-  Serial.println("2. 初始化GPIO控制器...");
-  gpioController.initialize();
-  Serial.println("   GPIO控制器初始化成功");
-  
-  // 3. 初始化设备管理器
-  Serial.println("3. 初始化设备管理器...");
-  if (deviceManager.initialize()) {
-    Serial.println("   设备管理器初始化成功");
-  } else {
-    Serial.println("   设备管理器初始化失败");
-  }
-  
-  // 4. 初始化环境管理器
-  Serial.println("4. 初始化环境管理器...");
-  if (environmentManager.initialize()) {
-    Serial.println("   环境管理器初始化成功");
-  } else {
-    Serial.println("   环境管理器初始化失败");
-  }
-  
-  // 5. 初始化WiFi连接
-  Serial.println("5. 连接WiFi网络...");
-  if (wiFiManager.connect()) {
-    Serial.print("   WiFi连接成功，IP地址: ");
-    Serial.println(wiFiManager.getIPAddress());
-    
-    // 6. 初始化Web服务器
-    Serial.println("6. 初始化Web服务器...");
-    webServer.initialize();
-    webServer.start();
-    Serial.println("   Web服务器初始化成功");
-  } else {
-    Serial.println("   WiFi连接失败，将继续运行本地功能");
-  }
-  
-  // 7. 初始化规则引擎
-  Serial.println("7. 初始化规则引擎...");
-  if (ruleEngine.initialize()) {
-    Serial.println("   规则引擎初始化成功");
-  } else {
-    Serial.println("   规则引擎初始化失败");
-  }
-  
-  // 8. 初始化告警管理器
-  Serial.println("8. 初始化告警管理器...");
-  if (alarmManager.initialize()) {
-    Serial.println("   告警管理器初始化成功");
-  } else {
-    Serial.println("   告警管理器初始化失败");
-  }
-  
-  systemInitialized = true;
-  Serial.println("\n=== 系统初始化完成 ===");
+
+  webServer.initialize();
+  webServer.start();
+
+  Serial.println("=== SETUP END ===");
 }
 
-/**
- * @brief 主循环函数
- */
+// ===== Arduino loop =====
 void loop() {
-  // 检查系统是否初始化成功
-  if (!systemInitialized) {
-    initializeSystem();
-    return;
-  }
-  
-  // 更新WiFi状态
   wiFiManager.update();
-  
-  // 采集环境数据
-  environmentManager.update();
-  
-  // 处理规则
-  ruleEngine.evaluateRules();
-  
-  // 检查告警
-  alarmManager.checkAlarms();
-  
-  // 更新设备状态
-  deviceManager.update();
-  
-  // 定期保存数据
-  static unsigned long lastSaveTime = 0;
-  if (millis() - lastSaveTime > SAVE_INTERVAL_MS) {
-    deviceManager.saveDeviceStates();
-    environmentManager.saveSensorData();
-    lastSaveTime = millis();
-  }
-  
-  // 系统延迟
-  delay(MAIN_LOOP_DELAY_MS);
-}
+  static unsigned long lastEnvCollect = 0;
+  if (millis() - lastEnvCollect >= 2000) {
+    lastEnvCollect = millis();
+    environmentManager.collectAllSensorData();
+    // 只有在数据采集后才检查告警
+    std::vector<AlarmStatus> alarms = alarmManager.checkAlarms(environmentManager);
+    
+    
 
-/**
- * @brief Arduino setup函数
- */
-void setup() {
-  initializeSystem();
+    // 只有当有告警触发时，才执行联动 (用于控制灯光等其他设备)
+    if (!alarms.empty()) {
+        alarmManager.executeAlarmActions(deviceManager);
+    }
+    if (alarmManager.syncBuzzer(deviceManager)) {
+      Device* buzzer = deviceManager.getDevice("buzzer_001");
+      if (buzzer) {
+        webServer.notifyDeviceUpdate(buzzer);
+      }
+    }
+  }
+  ruleEngine.evaluateRules(deviceManager, environmentManager);
+  // 移除每轮循环无条件执行 executeAlarmActions，避免它锁死设备状态
+  // alarmManager.executeAlarmActions(deviceManager);
+  delay(MAIN_LOOP_DELAY_MS);
 }

@@ -18,6 +18,14 @@ public:
      * @param sensorType DHT传感器类型（DHT11, DHT12, DHT21, DHT22）
      */
     HumiditySensor(String sensorId, int gpioPin, int sensorType);
+    /**
+     * @brief 使用共享DHT实例的构造函数
+     * @param sensorId 传感器ID
+     * @param sharedDht 共享的DHT实例指针
+     * @param gpioPin GPIO引脚（用于信息展示）
+     * @param sensorType DHT类型（必须与共享实例一致）
+     */
+    HumiditySensor(String sensorId, DHT* sharedDht, int gpioPin, int sensorType);
     
     /**
      * @brief 析构函数
@@ -73,6 +81,7 @@ private:
     DHT* dhtSensor;           // DHT传感器实例指针
     float lastHumidity;       // 上次读取的湿度值
     bool initialized;         // 传感器是否已初始化
+    bool ownsDHT;             // 是否自行管理DHT实例生命周期
 };
 
 #endif // HUMIDITY_SENSOR_H

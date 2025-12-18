@@ -2,11 +2,10 @@
 #define CONFIG_H
 
 #include <Arduino.h>
-#include "types.h"
 
 // WiFi配置参数（默认值，可通过配置文件或Web界面修改）
-#define DEFAULT_WIFI_SSID "your_wifi_ssid"
-#define DEFAULT_WIFI_PASSWORD "your_wifi_password"
+#define DEFAULT_WIFI_SSID "Redmi Note 11 Pro"
+#define DEFAULT_WIFI_PASSWORD "10098765432yU"
 #define DEFAULT_WIFI_DHCP_ENABLED true
 
 // 静态IP配置（仅当DHCP_DISABLED为true时使用）
@@ -31,6 +30,10 @@
 
 // Web服务器配置参数
 #define DEFAULT_WEB_SERVER_PORT 80  // Web服务器端口
+
+// 主循环与定期保存配置
+#define MAIN_LOOP_DELAY_MS 100       // 主循环延迟（毫秒）
+#define SAVE_INTERVAL_MS 60000       // 定期保存间隔（毫秒）
 
 // 告警配置参数
 #define DEFAULT_ALARM_DURATION 30  // 告警持续时间（秒）

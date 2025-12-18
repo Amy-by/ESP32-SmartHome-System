@@ -40,8 +40,8 @@ h1 {
     color: #f44336;
 }
 .dashboard {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+    display: flex;
+    flex-direction: column;
     gap: 20px;
     margin-bottom: 30px;
 }
@@ -129,28 +129,45 @@ input:focus + .slider {
 input:checked + .slider:before {
     transform: translateX(26px);
 }
+.toggle-switch.on .slider {
+    background-color: #4CAF50;
+}
+.toggle-switch.on .slider:before {
+    transform: translateX(26px);
+}
+.brightness-control {
+    width: 80px;
+}
 .brightness-control {
     width: 80px;
 }
 .environment-data {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-    gap: 15px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
 }
 .data-item {
-    text-align: center;
-    padding: 15px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 15px 20px;
     background-color: #f9f9f9;
-    border-radius: 5px;
+    border-radius: 8px;
+    transition: background-color 0.2s;
+}
+.data-item:hover {
+    background-color: #f0f0f0;
 }
 .data-value {
-    font-size: 24px;
+    font-size: 18px;
     font-weight: bold;
-    margin-bottom: 5px;
+    color: #333;
+    margin-bottom: 0;
 }
 .data-label {
-    font-size: 12px;
-    color: #666;
+    font-size: 16px;
+    color: #555;
+    font-weight: 500;
 }
 .status-bar {
     background-color: white;
@@ -174,6 +191,34 @@ input:checked + .slider:before {
 .update-button:hover {
     background-color: #0b7dda;
 }
+.full-width-input {
+    width: 100%;
+    box-sizing: border-box;
+    padding: 5px;
+    border: 1px solid #ccc;
+    border-radius: 4px;
+}
+.control-group {
+    width: 100%;
+    margin-bottom: 8px;
+}
+.control-group-last {
+    width: 100%;
+    margin-bottom: 12px;
+}
+.control-label {
+    margin-bottom: 4px;
+    font-weight: bold;
+}
+.control-actions {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+}
+
+
+
 )CSS";
 
 #endif /* STYLES_H */

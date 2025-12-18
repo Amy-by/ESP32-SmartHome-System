@@ -4,7 +4,7 @@
  * @brief 构造函数
  * @param dataLogger 数据记录器指针
  */
-AlarmManager::AlarmManager(DataLogger* dataLogger) : dataLogger(dataLogger) {
+AlarmManager::AlarmManager(DataLogger* dataLogger, SPIFFSStorage* storage) : dataLogger(dataLogger), storage(storage) {
 }
 
 /**
@@ -13,6 +13,38 @@ AlarmManager::AlarmManager(DataLogger* dataLogger) : dataLogger(dataLogger) {
 AlarmManager::~AlarmManager() {
 }
 
+void AlarmManager::setBuzzer(String id) {
+    buzzerId = id;
+}
+
+void AlarmManager::muteBuzzerUntilNormal() {
+    buzzerMuted = true;
+}
+
+void AlarmManager::resetBuzzerMute() {
+    buzzerMuted = false;
+}
+
+bool AlarmManager::syncBuzzer(DeviceManager& deviceManager) {
+    bool smokeActive = false;
+    for (const auto& a : activeAlarms) {
+        if (a.sensorId == "smoke" && a.isActive) {
+            smokeActive = true;
+            break;
+        }
+    }
+    AlarmThreshold th = getThreshold("smoke");
+    bool shouldOn = th.enabled && smokeActive && !buzzerMuted;
+    bool changed = (shouldOn != lastBuzzerState);
+    if (buzzerId.length() > 0 && changed) {
+        deviceManager.updateDeviceStatus(buzzerId, shouldOn);
+        lastBuzzerState = shouldOn;
+    }
+    if (!smokeActive) {
+        buzzerMuted = false;
+    }
+    return changed;
+}
 /**
  * @brief 添加告警阈值
  * @param threshold 告警阈值
@@ -33,6 +65,53 @@ bool AlarmManager::addThreshold(const AlarmThreshold& threshold) {
     return true;
 }
 
+bool AlarmManager::loadFromStorage() {
+    if (storage == nullptr) {
+        return false;
+    }
+    if (!storage->init()) {
+        return false;
+    }
+    DynamicJsonDocument doc(1024);
+    if (!storage->readJsonFile(SPIFFS_CONFIG_FILE, doc)) {
+        return false;
+    }
+    JsonObject alarms = doc["alarms"].as<JsonObject>();
+    if (!alarms.isNull()) {
+        for (JsonPair kv : alarms) {
+            String sid = String(kv.key().c_str());
+            JsonObject o = kv.value().as<JsonObject>();
+            AlarmThreshold th;
+            th.sensorId = sid;
+            th.minThreshold = o.containsKey("minThreshold") ? o["minThreshold"].as<float>() : -1;
+            th.maxThreshold = o.containsKey("maxThreshold") ? o["maxThreshold"].as<float>() : -1;
+            th.enabled = o.containsKey("enabled") ? o["enabled"].as<bool>() : false;
+            addThreshold(th);
+        }
+    }
+    return true;
+}
+
+bool AlarmManager::saveToStorage() {
+    if (storage == nullptr) {
+        return false;
+    }
+    if (!storage->init()) {
+        return false;
+    }
+    DynamicJsonDocument doc(1024);
+    // 读取现有配置，避免覆盖其他字段
+    storage->readJsonFile(SPIFFS_CONFIG_FILE, doc);
+    JsonObject alarms = doc.containsKey("alarms") ? doc["alarms"].as<JsonObject>() : doc.createNestedObject("alarms");
+    // 写入所有阈值
+    for (const auto& th : thresholds) {
+        JsonObject o = alarms.containsKey(th.sensorId) ? alarms[th.sensorId].as<JsonObject>() : alarms.createNestedObject(th.sensorId);
+        o["minThreshold"] = th.minThreshold;
+        o["maxThreshold"] = th.maxThreshold;
+        o["enabled"] = th.enabled;
+    }
+    return storage->writeJsonFile(SPIFFS_CONFIG_FILE, doc);
+}
 /**
  * @brief 更新告警阈值
  * @param threshold 告警阈值
@@ -40,7 +119,11 @@ bool AlarmManager::addThreshold(const AlarmThreshold& threshold) {
  */
 bool AlarmManager::updateThreshold(const AlarmThreshold& threshold) {
     // 调用addThreshold，它已经包含了更新逻辑
-    return addThreshold(threshold);
+    bool ok = addThreshold(threshold);
+    if (ok) {
+        saveToStorage();
+    }
+    return ok;
 }
 
 /**

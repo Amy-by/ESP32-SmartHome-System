@@ -8,29 +8,26 @@ WiFiManager::WiFiManager(String ssid, String password) {
 bool WiFiManager::connect() {
     Serial.print("正在连接WiFi: ");
     Serial.println(_ssid);
-    
+    WiFi.disconnect(true);
+    delay(500);
+    WiFi.mode(WIFI_STA);
+    WiFi.setSleep(false);
     WiFi.begin(_ssid.c_str(), _password.c_str());
-    
-    unsigned long startTime = millis();
+    unsigned long start = millis();
     while (WiFi.status() != WL_CONNECTED) {
         delay(500);
         Serial.print(".");
-        
-        if (millis() - startTime > CONNECT_TIMEOUT) {
-            Serial.println("\nWiFi连接超时！");
+        if (millis() - start > 60000) {
+            Serial.println("\nWiFi连接仍未成功（60s），放弃本次连接");
             return false;
         }
     }
-    
     Serial.println("\nWiFi连接成功！");
     Serial.print("IP地址: ");
     Serial.println(WiFi.localIP());
-    
-    // 调用连接成功回调
     if (_onConnectCallback != nullptr) {
         _onConnectCallback();
     }
-    
     return true;
 }
 
@@ -91,4 +88,16 @@ bool WiFiManager::setupAP(String apSSID, String apPassword) {
     Serial.println(WiFi.softAPIP());
     
     return true;
+}
+
+void WiFiManager::update() {
+    static unsigned long lastRetry = 0;
+    if (WiFi.status() == WL_CONNECTED) {
+        return;
+    }
+    if (millis() - lastRetry > 30000) {
+        lastRetry = millis();
+        Serial.println("WiFi连接已丢失，尝试重连...");
+        connect();
+    }
 }
