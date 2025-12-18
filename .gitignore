@@ -50,6 +50,6 @@ logs/
 test_*
 
 # Web server files
-*.html
-*.css
-*.js
+# *.html
+# *.css
+# *.js
