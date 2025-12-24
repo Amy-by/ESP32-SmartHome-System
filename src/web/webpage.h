@@ -18,20 +18,42 @@ const char* webpageContent = R"HTML(
     </style>
 </head>
 <body>
-    <div class="container">
-        <div class="header">
-            <h1>ESP32智能家居控制系统</h1>
-            <div class="wifi-status">
-                <span>WiFi状态: <span id="wifi-status" class="offline">未连接</span></span>
-                <span style="margin-left: 20px;">IP: <span id="ip-address">-</span></span>
+    <nav class="navbar">
+        <div class="container">
+            <div class="navbar-brand">
+                <h1>ESP32智能家居控制系统</h1>
+            </div>
+            
+            <div class="navbar-toggle" id="navbarToggle">
+                <span></span>
+                <span></span>
+                <span></span>
+            </div>
+            
+            <div class="navbar-menu" id="navbarMenu">
+                <div class="navbar-nav">
+                    <a href="#devices" class="nav-link active">设备控制</a>
+                    <a href="#environment" class="nav-link">环境监测</a>
+                    <a href="#alarms" class="nav-link">告警设置</a>
+                </div>
+                
+                <div class="navbar-status">
+                    <div class="wifi-status">
+                        <span>WiFi状态: <span id="wifi-status" class="offline">未连接</span></span>
+                        <span style="margin-left: 20px;">IP: <span id="ip-address">-</span></span>
+                    </div>
+                </div>
             </div>
         </div>
+    </nav>
+    
+    <div class="container">
         
         <button class="update-button" onclick="refreshAll()">手动刷新</button>
         
         <div class="dashboard">
             <!-- 设备控制区域 -->
-            <div class="card">
+            <div id="devices" class="card">
                 <h2>设备控制</h2>
                 <ul id="device-list" class="device-list">
                     <!-- 设备列表将通过JavaScript动态生成 -->
@@ -39,7 +61,7 @@ const char* webpageContent = R"HTML(
             </div>
             
             <!-- 环境监测区域 -->
-            <div class="card">
+            <div id="environment" class="card">
                 <h2>环境监测</h2>
                 <div id="environment-data" class="environment-data">
                     <!-- 环境数据将通过JavaScript动态生成 -->
@@ -47,7 +69,7 @@ const char* webpageContent = R"HTML(
             </div>
             
             <!-- 告警设置区域 -->
-            <div class="card">
+            <div id="alarms" class="card">
                 <h2>告警设置</h2>
                 <div id="alarm-settings">
                     <div class="device-item" style="align-items: flex-start;">
@@ -111,6 +133,10 @@ const char* webpageContent = R"HTML(
             initializeWebSocket();
             refreshAll();
             setInterval(refreshAll, 5000);
+            
+            // 导航栏交互功能
+            initNavbar();
+            
             const enSelect = document.getElementById('smoke-enabled-select');
             if (enSelect) {
                 enSelect.addEventListener('change', () => {
@@ -131,6 +157,84 @@ const char* webpageContent = R"HTML(
                 el.addEventListener('blur', () => saveSmokeThreshold());
             });
         });
+        
+        // 导航栏初始化函数
+        function initNavbar() {
+            const navbarToggle = document.getElementById('navbarToggle');
+            const navbarMenu = document.getElementById('navbarMenu');
+            const navLinks = document.querySelectorAll('.nav-link');
+            
+            // 移动端菜单切换
+            if (navbarToggle && navbarMenu) {
+                navbarToggle.addEventListener('click', () => {
+                    navbarMenu.classList.toggle('active');
+                    
+                    // 旋转汉堡菜单图标
+                    const spans = navbarToggle.querySelectorAll('span');
+                    spans[0].style.transform = navbarMenu.classList.contains('active') ? 'rotate(45deg) translate(5px, 5px)' : 'none';
+                    spans[1].style.opacity = navbarMenu.classList.contains('active') ? '0' : '1';
+                    spans[2].style.transform = navbarMenu.classList.contains('active') ? 'rotate(-45deg) translate(7px, -6px)' : 'none';
+                });
+            }
+            
+            // 导航链接点击事件
+            navLinks.forEach(link => {
+                link.addEventListener('click', (e) => {
+                    // 移除所有链接的active类
+                    navLinks.forEach(l => l.classList.remove('active'));
+                    // 添加当前链接的active类
+                    link.classList.add('active');
+                    
+                    // 移动端点击后关闭菜单
+                    if (navbarMenu && navbarMenu.classList.contains('active')) {
+                        navbarMenu.classList.remove('active');
+                        const spans = navbarToggle.querySelectorAll('span');
+                        spans.forEach(span => {
+                            span.style.transform = 'none';
+                            span.style.opacity = '1';
+                        });
+                    }
+                    
+                    // 平滑滚动到目标位置
+                    const targetId = link.getAttribute('href');
+                    if (targetId.startsWith('#')) {
+                        e.preventDefault();
+                        const targetElement = document.querySelector(targetId);
+                        if (targetElement) {
+                            const navbarHeight = document.querySelector('.navbar').offsetHeight;
+                            const targetPosition = targetElement.getBoundingClientRect().top + window.pageYOffset - navbarHeight;
+                            
+                            window.scrollTo({
+                                top: targetPosition,
+                                behavior: 'smooth'
+                            });
+                        }
+                    }
+                });
+            });
+            
+            // 滚动时高亮当前导航项
+            window.addEventListener('scroll', () => {
+                const sections = document.querySelectorAll('#devices, #environment, #alarms');
+                const navbarHeight = document.querySelector('.navbar').offsetHeight;
+                
+                let currentSection = '';
+                sections.forEach(section => {
+                    const sectionTop = section.offsetTop - navbarHeight - 100;
+                    const sectionHeight = section.offsetHeight;
+                    if (window.pageYOffset >= sectionTop) {
+                        currentSection = '#' + section.getAttribute('id');
+                    }
+                });
+                
+                navLinks.forEach(link => {
+                    link.classList.remove('active');
+                    if (link.getAttribute('href') === currentSection) {
+                        link.classList.add('active');
+                    }
+                });
+            });
+        }
         function initializeWebSocket() {
             const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
             const wsUrl = protocol + '//' + window.location.host + '/ws';

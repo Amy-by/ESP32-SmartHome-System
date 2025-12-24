@@ -3,7 +3,7 @@ CXXFLAGS := -std=c++17 -O2 -I../src -I../src/core -I./include
 LDFLAGS :=
 SRC := ../src/core/DataProcessor.cpp main.cpp
 BUILD := build
-BIN := $(BUILD)/native_app
+BIN := $(BUILD)/test_app
 .PHONY: all run clean
 all: $(BIN)
 $(BUILD):

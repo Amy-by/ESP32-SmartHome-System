@@ -12,6 +12,8 @@
 #include "../sensors/EnvironmentManager.h"
 #include "../utils/WiFiManager.h"
 #include "../core/AlarmManager.h"
+#include "../utils/SPIFFSStorage.h"
+#include "../utils/ConfigManager.h"
 
 class WebServer {
 public:
@@ -21,8 +23,10 @@ public:
      * @param environmentManager 环境管理器实例
      * @param wiFiManager WiFi管理器实例
      * @param alarmManager 告警管理器实例
+     * @param spiffsStorage SPIFFS存储实例
+     * @param configManager 配置管理器实例
      */
-    WebServer(DeviceManager& deviceManager, EnvironmentManager& environmentManager, WiFiManager& wiFiManager, AlarmManager& alarmManager);
+    WebServer(DeviceManager& deviceManager, EnvironmentManager& environmentManager, WiFiManager& wiFiManager, AlarmManager& alarmManager, SPIFFSStorage& spiffsStorage, ConfigManager& configManager);
     
     /**
      * @brief WebServer析构函数
@@ -59,10 +63,9 @@ private:
     EnvironmentManager& environmentManager;  // 环境管理器引用
     WiFiManager& wiFiManager;           // WiFi管理器引用
     AlarmManager& alarmManager;         // 告警管理器引用
+    SPIFFSStorage& spiffsStorage;       // SPIFFS存储引用
+    ConfigManager& configManager;       // 配置管理器引用
     bool running;                       // 服务器运行状态
-    
-    // HTML网页内容
-    const char* htmlContent;
     
     /**
      * @brief 配置API路由
@@ -118,6 +121,19 @@ private:
      * @brief 更新告警阈值设置
      */
     void handleUpdateAlarmSettings(AsyncWebServerRequest* request, const JsonVariantConst& json);
+    
+    /**
+     * @brief 获取完整配置
+     * @param request Web请求
+     */
+    void handleGetConfig(AsyncWebServerRequest* request);
+    
+    /**
+     * @brief 更新配置
+     * @param request Web请求
+     * @param json JSON配置数据
+     */
+    void handleUpdateConfig(AsyncWebServerRequest* request, const JsonVariantConst& json);
     
     /**
      * @brief 发送JSON响应

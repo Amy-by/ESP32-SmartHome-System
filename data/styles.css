@@ -1,10 +1,3 @@
-// styles.h - CSS样式定义头文件
-// 用于存储ESP32智能家居控制系统的网页样式
-
-#ifndef STYLES_H
-#define STYLES_H
-
-const char* stylesContent = R"CSS(
 body {
     font-family: Arial, sans-serif;
     margin: 0;
@@ -14,185 +7,64 @@ body {
 .container {
     max-width: 1200px;
     margin: 0 auto;
-    padding: 0 15px;
 }
 
-/* 响应式导航栏样式 */
-.navbar {
-    background-color: #4CAF50;
-    color: white;
-    padding: 15px 0;
-    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
-    position: sticky;
-    top: 0;
-    z-index: 1000;
-}
-
-.navbar .container {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-}
-
-.navbar-brand h1 {
-    margin: 0;
-    font-size: 24px;
-    color: white;
-}
-
-.navbar-toggle {
-    display: none;
-    flex-direction: column;
-    cursor: pointer;
-}
-
-.navbar-toggle span {
-    height: 3px;
-    width: 25px;
-    background-color: white;
-    margin: 3px 0;
-    border-radius: 3px;
-    transition: all 0.3s ease;
-}
-
-.navbar-menu {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    width: 100%;
-    margin-left: 30px;
-}
-
-.navbar-nav {
-    display: flex;
-    list-style: none;
-    margin: 0;
-    padding: 0;
-}
-
-.nav-link {
-    color: white;
-    text-decoration: none;
-    padding: 10px 15px;
-    margin: 0 5px;
-    border-radius: 5px;
-    transition: background-color 0.3s ease;
-    font-size: 16px;
-}
-
-.nav-link:hover,
-.nav-link.active {
-    background-color: rgba(255,255,255,0.2);
-}
-
-.navbar-status {
-    margin-left: auto;
-}
-
-/* 移动端响应式样式 */
-@media (max-width: 768px) {
-    .navbar .container {
-        flex-direction: column;
-        align-items: flex-start;
-    }
-    
-    .navbar-toggle {
-        display: flex;
-        position: absolute;
-        right: 15px;
-        top: 20px;
-    }
-    
-    .navbar-menu {
-        flex-direction: column;
-        width: 100%;
-        max-height: 0;
-        overflow: hidden;
-        transition: max-height 0.3s ease;
-        margin-left: 0;
-        margin-top: 15px;
-    }
-    
-    .navbar-menu.active {
-        max-height: 300px;
-    }
-    
-    .navbar-nav {
-        flex-direction: column;
-        width: 100%;
-    }
-    
-    .nav-link {
-        display: block;
-        padding: 12px 0;
-        margin: 5px 0;
-    }
-    
-    .navbar-status {
-        margin-left: 0;
-        margin-top: 15px;
-        width: 100%;
-    }
-    
-    .wifi-status {
-        display: flex;
-        flex-direction: column;
-        gap: 5px;
-    }
-    
-    .wifi-status span {
-        margin-left: 0 !important;
-    }
-}
-
-/* 小屏幕设备样式优化 */
-@media (max-width: 480px) {
-    .navbar-brand h1 {
-        font-size: 20px;
-    }
-    
-    .container {
-        padding: 0 10px;
-    }
-}
 h1 {
     color: #333;
     text-align: center;
     margin-bottom: 30px;
 }
 
+.header {
+    background-color: #4CAF50;
+    color: white;
+    padding: 20px;
+    border-radius: 10px;
+    margin-bottom: 30px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
 .wifi-status {
     font-size: 14px;
 }
+
 .online {
     color: #4CAF50;
 }
+
 .offline {
     color: #f44336;
 }
+
 .dashboard {
     display: flex;
     flex-direction: column;
     gap: 20px;
     margin-bottom: 30px;
 }
+
 .card {
     background-color: white;
     padding: 20px;
     border-radius: 10px;
     box-shadow: 0 0 10px rgba(0,0,0,0.1);
 }
+
 .card h2 {
     color: #333;
     margin-top: 0;
     margin-bottom: 20px;
     font-size: 20px;
 }
+
 .device-list {
     list-style: none;
     padding: 0;
     margin: 0;
 }
+
 .device-item {
     margin-bottom: 15px;
     padding: 15px;
@@ -202,33 +74,40 @@ h1 {
     justify-content: space-between;
     align-items: center;
 }
+
 .device-info {
     flex: 1;
 }
+
 .device-name {
     font-weight: bold;
     margin-bottom: 5px;
 }
+
 .device-type {
     font-size: 12px;
     color: #666;
 }
+
 .device-controls {
     display: flex;
     gap: 10px;
     align-items: center;
 }
+
 .toggle-switch {
     position: relative;
     display: inline-block;
     width: 60px;
     height: 34px;
 }
+
 .toggle-switch input {
     opacity: 0;
     width: 0;
     height: 0;
 }
+
 .slider {
     position: absolute;
     cursor: pointer;
@@ -240,6 +119,7 @@ h1 {
     transition: .4s;
     border-radius: 34px;
 }
+
 .slider:before {
     position: absolute;
     content: "";
@@ -251,32 +131,37 @@ h1 {
     transition: .4s;
     border-radius: 50%;
 }
+
 input:checked + .slider {
     background-color: #4CAF50;
 }
+
 input:focus + .slider {
     box-shadow: 0 0 1px #4CAF50;
 }
+
 input:checked + .slider:before {
     transform: translateX(26px);
 }
+
 .toggle-switch.on .slider {
     background-color: #4CAF50;
 }
+
 .toggle-switch.on .slider:before {
     transform: translateX(26px);
 }
+
 .brightness-control {
     width: 80px;
 }
-.brightness-control {
-    width: 80px;
-}
+
 .environment-data {
     display: flex;
     flex-direction: column;
     gap: 10px;
 }
+
 .data-item {
     display: flex;
     justify-content: space-between;
@@ -286,20 +171,24 @@ input:checked + .slider:before {
     border-radius: 8px;
     transition: background-color 0.2s;
 }
+
 .data-item:hover {
     background-color: #f0f0f0;
 }
+
 .data-value {
     font-size: 18px;
     font-weight: bold;
     color: #333;
     margin-bottom: 0;
 }
+
 .data-label {
     font-size: 16px;
     color: #555;
     font-weight: 500;
 }
+
 .status-bar {
     background-color: white;
     padding: 15px;
@@ -309,6 +198,7 @@ input:checked + .slider:before {
     font-size: 14px;
     color: #666;
 }
+
 .update-button {
     background-color: #2196F3;
     color: white;
@@ -319,9 +209,11 @@ input:checked + .slider:before {
     font-size: 14px;
     margin-bottom: 20px;
 }
+
 .update-button:hover {
     background-color: #0b7dda;
 }
+
 .full-width-input {
     width: 100%;
     box-sizing: border-box;
@@ -329,18 +221,22 @@ input:checked + .slider:before {
     border: 1px solid #ccc;
     border-radius: 4px;
 }
+
 .control-group {
     width: 100%;
     margin-bottom: 8px;
 }
+
 .control-group-last {
     width: 100%;
     margin-bottom: 12px;
 }
+
 .control-label {
     margin-bottom: 4px;
     font-weight: bold;
 }
+
 .control-actions {
     display: flex;
     align-items: center;
@@ -348,8 +244,65 @@ input:checked + .slider:before {
     width: 100%;
 }
 
+/* 导航栏样式 */
+.navbar {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 20px;
+    background-color: white;
+    padding: 10px;
+    border-radius: 10px;
+    box-shadow: 0 0 10px rgba(0,0,0,0.1);
+}
 
+.nav-button {
+    background-color: #e0e0e0;
+    color: #333;
+    border: none;
+    padding: 10px 20px;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 14px;
+    transition: background-color 0.3s;
+}
 
-)CSS";
+.nav-button:hover {
+    background-color: #bdbdbd;
+}
 
-#endif /* STYLES_H */
+.nav-button.active {
+    background-color: #4CAF50;
+    color: white;
+}
+
+/* 配置页面样式 */
+.config-container {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+.config-group {
+    margin-bottom: 20px;
+}
+
+.config-group label {
+    display: block;
+    margin-bottom: 8px;
+    font-weight: bold;
+    color: #333;
+}
+
+.config-group h3 {
+    font-size: 16px;
+    margin-top: 20px;
+    margin-bottom: 15px;
+    color: #555;
+}
+
+.config-actions {
+    display: flex;
+    gap: 15px;
+    margin-top: 30px;
+    justify-content: center;
+}

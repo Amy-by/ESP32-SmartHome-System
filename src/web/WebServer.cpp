@@ -2,33 +2,22 @@
 // 实现ESP32智能家居控制系统的Web服务器功能
 
 #include "WebServer.h"
-#include "webpage.h"
 #include "../devices/SmartLight.h"
 #include "../devices/SmartSwitch.h"
 #include "../core/AlarmManager.h"
 
-String templateProcessor(const String& var) {
-    if (var == "STYLES") {
-        return String(stylesContent);
-    }
-    return String();
-}
-
 // 构造函数
-WebServer::WebServer(DeviceManager& deviceManager, EnvironmentManager& environmentManager, WiFiManager& wiFiManager, AlarmManager& alarmManager)
+WebServer::WebServer(DeviceManager& deviceManager, EnvironmentManager& environmentManager, WiFiManager& wiFiManager, AlarmManager& alarmManager, SPIFFSStorage& spiffsStorage, ConfigManager& configManager)
     : server(80),
       ws("/ws"),
       deviceManager(deviceManager),
       environmentManager(environmentManager),
       wiFiManager(wiFiManager),
       alarmManager(alarmManager),
-      running(false),
-      htmlContent(webpageContent) // 从webpage.h导入HTML内容
+      spiffsStorage(spiffsStorage),
+      configManager(configManager),
+      running(false)
 {
-    // 验证HTML内容是否正确加载
-    if (htmlContent == nullptr) {
-        Serial.println("警告: HTML内容未正确加载");
-    }
 }
 
 // 析构函数
@@ -114,13 +103,35 @@ void WebServer::setupApiRoutes() {
         deserializeJson(doc, data, len);
         handleUpdateAlarmSettings(request, doc.as<JsonVariantConst>());
     });
+    
+    // 配置API路由
+    server.on("/api/config", HTTP_GET, [this](AsyncWebServerRequest* request) {
+        handleGetConfig(request);
+    });
+    server.on("/api/config", HTTP_PUT, [this](AsyncWebServerRequest* request) {}, 
+             nullptr, [this](AsyncWebServerRequest* request, uint8_t* data, size_t len, size_t index, size_t total) {
+        DynamicJsonDocument doc(4096);
+        deserializeJson(doc, data, len);
+        handleUpdateConfig(request, doc.as<JsonVariantConst>());
+    });
+    server.on("/api/config", HTTP_POST, [this](AsyncWebServerRequest* request) {}, 
+             nullptr, [this](AsyncWebServerRequest* request, uint8_t* data, size_t len, size_t index, size_t total) {
+        DynamicJsonDocument doc(4096);
+        deserializeJson(doc, data, len);
+        handleUpdateConfig(request, doc.as<JsonVariantConst>());
+    });
 }
 
 // 配置网页路由
 void WebServer::setupWebRoutes() {
-    server.on("/", HTTP_GET, [this](AsyncWebServerRequest* request) {
-        request->send_P(200, "text/html; charset=utf-8", webpageContent, templateProcessor);
+    // 主页路由，从SPIFFS中提供index.html
+    server.on("/", HTTP_GET, [](AsyncWebServerRequest* request) {
+        request->send(SPIFFS, "/index.html", "text/html; charset=utf-8");
     });
+    
+    // 静态资源路由，从SPIFFS中提供文件
+    server.serveStatic("/", SPIFFS, "/")
+        .setDefaultFile("index.html");
 }
 
 // 配置WebSocket路由
@@ -432,4 +443,75 @@ void WebServer::broadcastDeviceUpdate(Device* device) {
     String payload;
     serializeJson(doc, payload);
     ws.textAll(payload);
+}
+
+// 处理获取配置API请求
+void WebServer::handleGetConfig(AsyncWebServerRequest* request) {
+    DynamicJsonDocument doc(4096);
+    doc["status"] = "success";
+    doc["message"] = "获取配置成功";
+    
+    // 获取完整配置并复制到响应文档
+    JsonDocument& config = configManager.getFullConfig();
+    doc["config"] = config.as<JsonVariant>();
+    
+    sendJsonResponse(request, doc);
+}
+
+// 处理更新配置API请求
+void WebServer::handleUpdateConfig(AsyncWebServerRequest* request, const JsonVariantConst& json) {
+    DynamicJsonDocument doc(256);
+    
+    // 检查是否有配置数据
+    if (!json.containsKey("config")) {
+        request->send(400, "application/json; charset=utf-8", 
+                      "{\"status\":\"error\",\"message\":\"缺少配置数据\"}");
+        return;
+    }
+    
+    // 获取配置数据
+    const JsonVariantConst& configData = json["config"];
+    
+    // 更新配置
+    JsonDocument& config = configManager.getFullConfig();
+    
+    // 遍历所有配置项并更新
+    for (JsonPairConst kv : configData) {
+        const char* key = kv.key().c_str();
+        const JsonVariantConst& value = kv.value();
+        
+        // 特殊处理嵌套配置
+        if (value.is<JsonObjectConst>()) {
+            // 如果是嵌套对象，递归更新
+            JsonObject destObj = config[key].to<JsonObject>();
+            for (JsonPairConst innerKv : value.as<JsonObjectConst>()) {
+                const char* innerKey = innerKv.key().c_str();
+                const JsonVariantConst& innerValue = innerKv.value();
+                
+                // 处理更深层次的嵌套（如static_ip）
+                if (innerValue.is<JsonObjectConst>()) {
+                    JsonObject innerDestObj = destObj[innerKey].to<JsonObject>();
+                    for (JsonPairConst deepKv : innerValue.as<JsonObjectConst>()) {
+                        innerDestObj[deepKv.key()] = deepKv.value();
+                    }
+                } else {
+                    destObj[innerKey] = innerValue;
+                }
+            }
+        } else {
+            // 简单值直接更新
+            config[key] = value;
+        }
+    }
+    
+    // 保存配置到文件
+    if (configManager.save()) {
+        doc["status"] = "success";
+        doc["message"] = "配置保存成功";
+        sendJsonResponse(request, doc);
+    } else {
+        doc["status"] = "error";
+        doc["message"] = "配置保存失败";
+        sendJsonResponse(request, doc, 500);
+    }
 }

@@ -15,6 +15,7 @@
 #include "utils/DataLogger.h"
 #include "utils/SPIFFSStorage.h"
 #include "core/DataProcessor.h"
+#include "utils/ConfigManager.h"
 #include "config.h"
 
 #include "sensors/TemperatureSensor.h"
@@ -24,14 +25,15 @@
 #include <DHT.h>
 
 // ===== 全局对象 =====
-WiFiManager wiFiManager(DEFAULT_WIFI_SSID, DEFAULT_WIFI_PASSWORD);
+SPIFFSStorage spiffsStorage;
+ConfigManager configManager(spiffsStorage);
+WiFiManager wiFiManager(configManager.getWiFiSsid(), configManager.getWiFiPassword());
 DeviceManager deviceManager;                 // ✔ 正确：无参构造
 EnvironmentManager environmentManager;
 RuleEngine ruleEngine;
-SPIFFSStorage spiffsStorage;
-DataLogger dataLogger(&spiffsStorage, "/logs.txt", DEFAULT_MAX_LOG_SIZE);
+DataLogger dataLogger(&spiffsStorage, "/logs.txt", configManager.getMaxLogSize());
 AlarmManager alarmManager(&dataLogger, &spiffsStorage);
-WebServer webServer(deviceManager, environmentManager, wiFiManager, alarmManager);
+WebServer webServer(deviceManager, environmentManager, wiFiManager, alarmManager, spiffsStorage, configManager);
 
 
 // ===== 引脚定义 =====
@@ -95,6 +97,20 @@ void setup() {
   // ===============================================
 
   Serial.println("=== Init Storage & Logger ===");
+  if (!spiffsStorage.init()) {
+    Serial.println("ERROR: SPIFFS initialization failed!");
+  } else {
+    Serial.println("SPIFFS initialized successfully");
+    
+    // 加载配置文件
+    if (configManager.load()) {
+      Serial.println("Configuration loaded successfully from SPIFFS");
+    } else {
+      Serial.println("No configuration file found, using defaults");
+      configManager.resetToDefaults();
+      configManager.save();
+    }
+  }
   dataLogger.init();
   
   Serial.println("=== Init Environment Sensors ===");
@@ -114,7 +130,7 @@ void setup() {
     AlarmThreshold smokeThreshold;
     smokeThreshold.sensorId = "smoke";
     smokeThreshold.minThreshold = -1;   // 不设下限
-    smokeThreshold.maxThreshold = 500;  // 超过500触发报警
+    smokeThreshold.maxThreshold = configManager.getSmokeThreshold();  // 从配置中获取阈值
     smokeThreshold.enabled = true;
     alarmManager.updateThreshold(smokeThreshold);
   }
@@ -174,5 +190,5 @@ void loop() {
   ruleEngine.evaluateRules(deviceManager, environmentManager);
   // 移除每轮循环无条件执行 executeAlarmActions，避免它锁死设备状态
   // alarmManager.executeAlarmActions(deviceManager);
-  delay(MAIN_LOOP_DELAY_MS);
+  delay(configManager.getMainLoopDelayMs());
 }

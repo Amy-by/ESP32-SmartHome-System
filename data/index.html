@@ -1,0 +1,229 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ESP32智能家居控制系统</title>
+    <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>ESP32智能家居控制系统</h1>
+            <div class="wifi-status">
+                <span>WiFi状态: <span id="wifi-status" class="offline">未连接</span></span>
+                <span style="margin-left: 20px;">IP: <span id="ip-address">-</span></span>
+            </div>
+        </div>
+        
+        <!-- 导航栏 -->
+        <div class="navbar">
+            <button class="nav-button active" onclick="showPage('dashboard')">首页</button>
+            <button class="nav-button" onclick="showPage('config')">配置</button>
+        </div>
+        
+        <!-- 首页内容 -->
+        <div id="dashboard" class="page">
+            <button class="update-button" onclick="refreshAll()">手动刷新</button>
+        
+        <div class="dashboard">
+            <!-- 设备控制区域 -->
+            <div class="card">
+                <h2>设备控制</h2>
+                <ul id="device-list" class="device-list">
+                    <!-- 设备列表将通过JavaScript动态生成 -->
+                </ul>
+            </div>
+            
+            <!-- 环境监测区域 -->
+            <div class="card">
+                <h2>环境监测</h2>
+                <div id="environment-data" class="environment-data">
+                    <!-- 环境数据将通过JavaScript动态生成 -->
+                </div>
+            </div>
+            
+            <!-- 告警设置区域 -->
+            <div class="card">
+                <h2>告警设置</h2>
+                <div id="alarm-settings">
+                    <div class="device-item" style="align-items: flex-start;">
+                        <div class="device-info" style="min-width: 140px; padding-top: 8px;">
+                            <div class="device-name">烟雾报警阈值设置</div>
+                            <div class="device-type">传感器：smoke</div>
+                        </div>
+                        
+                        <div style="flex: 1; margin-left: 20px;">
+                            <!-- 第一行：当前设置状态 -->
+                            <div class="status-bar" style="text-align: left; padding: 10px 15px; margin-bottom: 15px; background-color: #e8f5e9; color: #2e7d32; border: 1px solid #c8e6c9;">
+                                <strong>当前生效配置：</strong> <span id="smoke-current">加载中...</span>
+                            </div>
+
+                            <!-- 第二行：编辑控制区域 -->
+                            <div style="display: flex; align-items: flex-end; gap: 15px; flex-wrap: wrap;">
+                                <div style="display: flex; flex-direction: column;">
+                                    <label class="control-label" style="font-size: 12px; color: #666;">最小阈值 (Min)</label>
+                                    <input type="number" id="smoke-min" min="0" max="4095" step="1" class="full-width-input" placeholder="无" style="width: 100px; padding: 8px;">
+                                </div>
+                                
+                                <div style="display: flex; flex-direction: column;">
+                                    <label class="control-label" style="font-size: 12px; color: #666;">最大阈值 (Max)</label>
+                                    <input type="number" id="smoke-max" min="0" max="4095" step="1" class="full-width-input" placeholder="500" style="width: 100px; padding: 8px;">
+                                </div>
+
+                                <div style="display: flex; flex-direction: column; align-items: flex-start; padding-bottom: 5px;">
+                                    <label class="control-label" style="font-size: 12px; color: #666; margin-bottom: 5px;">启用告警</label>
+                                    <select id="smoke-enabled-select" class="full-width-input" style="width: 100px; padding: 8px;">
+                                        <option value="1">启用</option>
+                                        <option value="0">禁用</option>
+                                    </select>
+                                </div>
+
+                                <button class="update-button" onclick="saveSmokeThreshold()" style="margin: 0; height: 38px; margin-bottom: 2px;">保存设置</button>
+                                
+                                <div style="font-size: 12px; color: #888; margin-bottom: 10px; flex: 1; min-width: 200px; text-align: right; align-self: center;">
+                                    建议阈值500 (ADC/ppm)
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        </div>
+    </div>
+    
+    <!-- 配置页面内容 -->
+    <div id="config" class="page" style="display: none;">
+        <div class="config-container">
+            <!-- WiFi配置区域 -->
+            <div class="card">
+                <h2>WiFi配置</h2>
+                <div class="config-group">
+                    <label for="wifi-ssid">WiFi名称 (SSID)</label>
+                    <input type="text" id="wifi-ssid" class="full-width-input" placeholder="输入WiFi名称">
+                </div>
+                <div class="config-group">
+                    <label for="wifi-password">WiFi密码</label>
+                    <input type="password" id="wifi-password" class="full-width-input" placeholder="输入WiFi密码">
+                </div>
+                <div class="config-group">
+                    <label class="control-label">DHCP设置</label>
+                    <div style="display: flex; align-items: center;">
+                        <input type="checkbox" id="dhcp-enabled" checked>
+                        <label for="dhcp-enabled" style="margin-left: 10px;">启用DHCP</label>
+                    </div>
+                </div>
+                <div id="static-ip-config" class="config-group" style="display: none;">
+                    <h3>静态IP配置</h3>
+                    <div class="config-group">
+                        <label for="static-ip">IP地址</label>
+                        <input type="text" id="static-ip" class="full-width-input" placeholder="输入IP地址">
+                    </div>
+                    <div class="config-group">
+                        <label for="gateway">网关</label>
+                        <input type="text" id="gateway" class="full-width-input" placeholder="输入网关地址">
+                    </div>
+                    <div class="config-group">
+                        <label for="subnet-mask">子网掩码</label>
+                        <input type="text" id="subnet-mask" class="full-width-input" placeholder="输入子网掩码">
+                    </div>
+                    <div class="config-group">
+                        <label for="dns-server">DNS服务器</label>
+                        <input type="text" id="dns-server" class="full-width-input" placeholder="输入DNS服务器地址">
+                    </div>
+                </div>
+            </div>
+            
+            <!-- 传感器配置区域 -->
+            <div class="card">
+                <h2>传感器配置</h2>
+                <div class="config-group">
+                    <label for="sensor-update-interval">传感器更新间隔 (毫秒)</label>
+                    <input type="number" id="sensor-update-interval" class="full-width-input" min="100" step="100">
+                </div>
+                <div class="config-group">
+                    <label for="temperature-threshold">温度告警阈值 (℃)</label>
+                    <input type="number" id="temperature-threshold" class="full-width-input" step="0.1">
+                </div>
+                <div class="config-group">
+                    <label for="humidity-threshold">湿度告警阈值 (%)</label>
+                    <input type="number" id="humidity-threshold" class="full-width-input" step="0.1">
+                </div>
+                <div class="config-group">
+                    <label for="light-threshold">光照告警阈值 (lx)</label>
+                    <input type="number" id="light-threshold" class="full-width-input" min="0">
+                </div>
+                <div class="config-group">
+                    <label for="smoke-threshold">烟雾告警阈值 (ppm)</label>
+                    <input type="number" id="smoke-threshold" class="full-width-input" min="0">
+                </div>
+            </div>
+            
+            <!-- 设备配置区域 -->
+            <div class="card">
+                <h2>设备配置</h2>
+                <div class="config-group">
+                    <label for="device-polling-interval">设备轮询间隔 (毫秒)</label>
+                    <input type="number" id="device-polling-interval" class="full-width-input" min="100" step="100">
+                </div>
+            </div>
+            
+            <!-- 存储配置区域 -->
+            <div class="card">
+                <h2>存储配置</h2>
+                <div class="config-group">
+                    <label for="max-log-size">最大日志大小 (字节)</label>
+                    <input type="number" id="max-log-size" class="full-width-input" min="1024">
+                </div>
+            </div>
+            
+            <!-- Web服务器配置区域 -->
+            <div class="card">
+                <h2>Web服务器配置</h2>
+                <div class="config-group">
+                    <label for="web-server-port">Web服务器端口</label>
+                    <input type="number" id="web-server-port" class="full-width-input" min="1" max="65535">
+                </div>
+            </div>
+            
+            <!-- 告警配置区域 -->
+            <div class="card">
+                <h2>告警配置</h2>
+                <div class="config-group">
+                    <label for="alarm-duration">告警持续时间 (秒)</label>
+                    <input type="number" id="alarm-duration" class="full-width-input" min="1">
+                </div>
+                <div class="config-group">
+                    <label class="control-label">告警启用</label>
+                    <div style="display: flex; align-items: center;">
+                        <input type="checkbox" id="alarm-enabled" checked>
+                        <label for="alarm-enabled" style="margin-left: 10px;">启用告警</label>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- 调试配置区域 -->
+            <div class="card">
+                <h2>调试配置</h2>
+                <div class="config-group">
+                    <label class="control-label">调试模式</label>
+                    <div style="display: flex; align-items: center;">
+                        <input type="checkbox" id="debug-mode">
+                        <label for="debug-mode" style="margin-left: 10px;">启用调试模式</label>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- 保存按钮 -->
+            <div class="config-actions">
+                <button class="update-button" onclick="saveConfig()">保存配置</button>
+                <button class="update-button" onclick="loadConfig()">加载当前配置</button>
+            </div>
+        </div>
+    </div>
+    
+    <script src="/script.js"></script>
+</body>
+</html>
