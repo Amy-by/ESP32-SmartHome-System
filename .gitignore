@@ -1,0 +1,44 @@
+# Build outputs
+*.o
+*.elf
+*.bin
+*.map
+*.hex
+*.out
+*.a
+*.d
+
+# Arduino IDE files
+*.ino.cpp
+*.ino.eep
+*.ino.hex
+*.ino.with_bootloader.hex
+*.ino.with_bootloader.bin
+*.ino.generic.bin
+*.ino.generic.hex
+
+# PlatformIO files
+.pio
+.vscode/
+lib/
+include/
+.pioenvs
+.piolibdeps
+
+# Log files
+*.log
+logs/
+
+# Temporary files
+*.tmp
+*.swp
+*.swo
+*~
+
+# Configuration files containing secrets
+*.env
+secrets.h
+config.h
+
+# User files
+plan.txt
