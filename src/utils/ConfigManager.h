@@ -10,7 +10,7 @@ class ConfigManager {
 private:
     SPIFFSStorage& _spiffsStorage;
     String _configFilePath;
-    JsonDocument _config;
+    DynamicJsonDocument _config;
     bool _loaded;
 
 public:
@@ -278,10 +278,94 @@ public:
     void setDebugMode(bool mode);
     
     /**
+     * @brief 获取数据库服务器地址
+     * @return String 数据库服务器地址
+     */
+    String getDatabaseServer();
+    
+    /**
+     * @brief 设置数据库服务器地址
+     * @param server 数据库服务器地址
+     */
+    void setDatabaseServer(const String& server);
+    
+    /**
+     * @brief 获取数据库端口
+     * @return int 数据库端口
+     */
+    int getDatabasePort();
+    
+    /**
+     * @brief 设置数据库端口
+     * @param port 数据库端口
+     */
+    void setDatabasePort(int port);
+    
+    /**
+     * @brief 获取数据库用户名
+     * @return String 数据库用户名
+     */
+    String getDatabaseUsername();
+    
+    /**
+     * @brief 设置数据库用户名
+     * @param username 数据库用户名
+     */
+    void setDatabaseUsername(const String& username);
+    
+    /**
+     * @brief 获取数据库密码
+     * @return String 数据库密码
+     */
+    String getDatabasePassword();
+    
+    /**
+     * @brief 设置数据库密码
+     * @param password 数据库密码
+     */
+    void setDatabasePassword(const String& password);
+    
+    /**
+     * @brief 获取数据库名称
+     * @return String 数据库名称
+     */
+    String getDatabaseName();
+    
+    /**
+     * @brief 设置数据库名称
+     * @param name 数据库名称
+     */
+    void setDatabaseName(const String& name);
+    
+    /**
      * @brief 获取完整配置
      * @return JsonDocument& 配置文档
      */
     JsonDocument& getFullConfig();
+    
+    /**
+     * @brief 获取管理员用户名
+     * @return String 管理员用户名
+     */
+    String getAdminUsername();
+    
+    /**
+     * @brief 设置管理员用户名
+     * @param username 管理员用户名
+     */
+    void setAdminUsername(const String& username);
+    
+    /**
+     * @brief 获取管理员密码
+     * @return String 管理员密码
+     */
+    String getAdminPassword();
+    
+    /**
+     * @brief 设置管理员密码
+     * @param password 管理员密码
+     */
+    void setAdminPassword(const String& password);
 };
 
 #endif // CONFIGMANAGER_H

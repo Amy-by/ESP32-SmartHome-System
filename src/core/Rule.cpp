@@ -114,6 +114,14 @@ String Rule::getId() {
 }
 
 /**
+ * @brief 设置规则ID
+ * @param id 规则ID
+ */
+void Rule::setId(String id) {
+    this->id = id;
+}
+
+/**
  * @brief 获取规则名称
  * @return 规则名称
  */
@@ -135,4 +143,42 @@ bool Rule::isEnabled() {
  */
 void Rule::setEnabled(bool enabled) {
     this->enabled = enabled;
+}
+
+/**
+ * @brief 获取规则条件列表
+ * @return 规则条件列表的引用
+ */
+const std::vector<RuleCondition>& Rule::getConditions() const {
+    return conditions;
+}
+
+/**
+ * @brief 获取规则动作列表
+ * @return 规则动作列表的引用
+ */
+const std::vector<RuleAction>& Rule::getActions() const {
+    return actions;
+}
+
+/**
+ * @brief 设置规则名称
+ * @param name 规则名称
+ */
+void Rule::setName(String name) {
+    this->name = name;
+}
+
+/**
+ * @brief 清空规则条件列表
+ */
+void Rule::clearConditions() {
+    conditions.clear();
+}
+
+/**
+ * @brief 清空规则动作列表
+ */
+void Rule::clearActions() {
+    actions.clear();
 }

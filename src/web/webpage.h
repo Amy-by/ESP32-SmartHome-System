@@ -34,6 +34,7 @@ const char* webpageContent = R"HTML(
                 <div class="navbar-nav">
                     <a href="#devices" class="nav-link active">设备控制</a>
                     <a href="#environment" class="nav-link">环境监测</a>
+                    <a href="#rules" class="nav-link">规则管理</a>
                     <a href="#alarms" class="nav-link">告警设置</a>
                 </div>
                 
@@ -112,6 +113,58 @@ const char* webpageContent = R"HTML(
                             </div>
                         </div>
                     </div>
+                </div>
+            </div>
+            
+            <!-- 规则管理区域 -->
+            <div id="rules" class="card">
+                <h2>规则管理</h2>
+                
+                <!-- 规则列表 -->
+                <div id="rules-list-container" class="rules-list-container">
+                    <h3>现有规则</h3>
+                    <ul id="rules-list" class="rules-list">
+                        <!-- 规则列表将通过JavaScript动态生成 -->
+                    </ul>
+                </div>
+                
+                <!-- 规则编辑表单 -->
+                <div id="rule-form-container" class="rule-form-container">
+                    <h3>创建/编辑规则</h3>
+                    <form id="rule-form" class="rule-form">
+                        <input type="hidden" id="rule-id" value="">
+                        
+                        <div class="form-row">
+                            <label for="rule-name">规则名称:</label>
+                            <input type="text" id="rule-name" name="name" placeholder="输入规则名称" required>
+                        </div>
+                        
+                        <div class="form-row">
+                            <label for="rule-enabled">启用规则:</label>
+                            <input type="checkbox" id="rule-enabled" name="enabled" checked>
+                        </div>
+                        
+                        <div class="form-row">
+                            <label>条件:</label>
+                            <div id="rule-conditions" class="rule-conditions">
+                                <!-- 条件将通过JavaScript动态添加 -->
+                            </div>
+                            <button type="button" class="add-button" onclick="addCondition()">添加条件</button>
+                        </div>
+                        
+                        <div class="form-row">
+                            <label>动作:</label>
+                            <div id="rule-actions" class="rule-actions">
+                                <!-- 动作将通过JavaScript动态添加 -->
+                            </div>
+                            <button type="button" class="add-button" onclick="addAction()">添加动作</button>
+                        </div>
+                        
+                        <div class="form-row">
+                            <button type="submit" class="update-button">保存规则</button>
+                            <button type="button" class="cancel-button" onclick="clearRuleForm()">清空</button>
+                        </div>
+                    </form>
                 </div>
             </div>
         </div>
@@ -215,7 +268,7 @@ const char* webpageContent = R"HTML(
             
             // 滚动时高亮当前导航项
             window.addEventListener('scroll', () => {
-                const sections = document.querySelectorAll('#devices, #environment, #alarms');
+                const sections = document.querySelectorAll('#devices, #environment, #rules, #alarms');
                 const navbarHeight = document.querySelector('.navbar').offsetHeight;
                 
                 let currentSection = '';
@@ -293,6 +346,7 @@ const char* webpageContent = R"HTML(
             updateWiFiStatus();
             updateLastUpdateTime();
             updateAlarmSettings();
+            updateRules();
         }
         function updateWiFiStatus() {
             return fetch('/api/wifi', { cache: 'no-store' })
@@ -622,6 +676,221 @@ const char* webpageContent = R"HTML(
             document.getElementById('last-update').textContent =
                 new Date().toLocaleString();
         }
+        
+        // ===== 规则管理相关函数 =====
+        function updateRules() {
+            fetch('/api/rules', { cache: 'no-store' })
+                .then(r => r.json())
+                .then(data => {
+                    if (data.status !== 'success') return;
+                    
+                    const rulesList = document.getElementById('rules-list');
+                    rulesList.innerHTML = '';
+                    
+                    data.rules.forEach(rule => {
+                        const li = document.createElement('li');
+                        li.className = 'rule-item';
+                        
+                        const ruleInfo = document.createElement('div');
+                        ruleInfo.className = 'rule-info';
+                        ruleInfo.innerHTML = `
+                            <div class="rule-name">${rule.name}</div>
+                            <div class="rule-status">${rule.enabled ? '启用' : '禁用'}</div>
+                            <div class="rule-description">
+                                条件: ${rule.conditions.length}个 | 动作: ${rule.actions.length}个
+                            </div>
+                        `;
+                        
+                        const ruleActions = document.createElement('div');
+                        ruleActions.className = 'rule-actions-buttons';
+                        
+                        const editBtn = document.createElement('button');
+                        editBtn.className = 'edit-button';
+                        editBtn.textContent = '编辑';
+                        editBtn.onclick = () => editRule(rule);
+                        
+                        const deleteBtn = document.createElement('button');
+                        deleteBtn.className = 'delete-button';
+                        deleteBtn.textContent = '删除';
+                        deleteBtn.onclick = () => deleteRule(rule.id);
+                        
+                        ruleActions.appendChild(editBtn);
+                        ruleActions.appendChild(deleteBtn);
+                        
+                        li.appendChild(ruleInfo);
+                        li.appendChild(ruleActions);
+                        rulesList.appendChild(li);
+                    });
+                })
+                .catch(err => console.error('updateRules failed:', err));
+        }
+        
+        function addCondition() {
+            const conditionsContainer = document.getElementById('rule-conditions');
+            const conditionIndex = conditionsContainer.children.length;
+            
+            const conditionDiv = document.createElement('div');
+            conditionDiv.className = 'condition-item';
+            conditionDiv.innerHTML = `
+                <div class="condition-inputs">
+                    <input type="text" name="condition_device_${conditionIndex}" placeholder="设备ID (如: light1)" required>
+                    <select name="condition_type_${conditionIndex}" required>
+                        <option value="value">数值比较</option>
+                        <option value="state">状态比较</option>
+                    </select>
+                    <input type="text" name="condition_value_${conditionIndex}" placeholder="比较值" required>
+                    <select name="condition_operator_${conditionIndex}" required>
+                        <option value=">">大于</option>
+                        <option value="<">小于</option>
+                        <option value="==">等于</option>
+                        <option value=">=">大于等于</option>
+                        <option value="<=">小于等于</option>
+                    </select>
+                </div>
+                <button type="button" class="remove-button" onclick="removeCondition(this)">移除</button>
+            `;
+            
+            conditionsContainer.appendChild(conditionDiv);
+        }
+        
+        function removeCondition(button) {
+            const conditionItem = button.parentElement;
+            conditionItem.remove();
+        }
+        
+        function addAction() {
+            const actionsContainer = document.getElementById('rule-actions');
+            const actionIndex = actionsContainer.children.length;
+            
+            const actionDiv = document.createElement('div');
+            actionDiv.className = 'action-item';
+            actionDiv.innerHTML = `
+                <div class="action-inputs">
+                    <input type="text" name="action_device_${actionIndex}" placeholder="设备ID (如: light1)" required>
+                    <input type="text" name="action_value_${actionIndex}" placeholder="目标值 (如: 1或0)" required>
+                </div>
+                <button type="button" class="remove-button" onclick="removeAction(this)">移除</button>
+            `;
+            
+            actionsContainer.appendChild(actionDiv);
+        }
+        
+        function removeAction(button) {
+            const actionItem = button.parentElement;
+            actionItem.remove();
+        }
+        
+        function clearRuleForm() {
+            document.getElementById('rule-form').reset();
+            document.getElementById('rule-id').value = '';
+            document.getElementById('rule-conditions').innerHTML = '';
+            document.getElementById('rule-actions').innerHTML = '';
+        }
+        
+        function editRule(rule) {
+            clearRuleForm();
+            
+            document.getElementById('rule-id').value = rule.id;
+            document.getElementById('rule-name').value = rule.name;
+            document.getElementById('rule-enabled').checked = rule.enabled;
+            
+            const conditionsContainer = document.getElementById('rule-conditions');
+            rule.conditions.forEach(condition => {
+                addCondition();
+                const conditionIndex = conditionsContainer.children.length - 1;
+                
+                document.querySelector(`[name="condition_device_${conditionIndex}"]`).value = condition.deviceId;
+                document.querySelector(`[name="condition_type_${conditionIndex}"]`).value = condition.type;
+                document.querySelector(`[name="condition_value_${conditionIndex}"]`).value = condition.value;
+                document.querySelector(`[name="condition_operator_${conditionIndex}"]`).value = condition.operator;
+            });
+            
+            const actionsContainer = document.getElementById('rule-actions');
+            rule.actions.forEach(action => {
+                addAction();
+                const actionIndex = actionsContainer.children.length - 1;
+                
+                document.querySelector(`[name="action_device_${actionIndex}"]`).value = action.deviceId;
+                document.querySelector(`[name="action_value_${actionIndex}"]`).value = action.value;
+            });
+            
+            // 滚动到规则表单
+            document.getElementById('rules').scrollIntoView({ behavior: 'smooth' });
+        }
+        
+        function deleteRule(ruleId) {
+            if (!confirm('确定要删除这条规则吗？')) return;
+            
+            fetch('/api/rules', {
+                method: 'DELETE',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ id: ruleId })
+            })
+            .then(r => r.json())
+            .then(() => updateRules())
+            .catch(err => console.error('deleteRule failed:', err));
+        }
+        
+        // 规则表单提交事件
+        document.getElementById('rule-form').addEventListener('submit', function(e) {
+            e.preventDefault();
+            
+            const ruleId = document.getElementById('rule-id').value;
+            const name = document.getElementById('rule-name').value;
+            const enabled = document.getElementById('rule-enabled').checked;
+            
+            const conditions = [];
+            const conditionItems = document.querySelectorAll('.condition-item');
+            conditionItems.forEach((item, index) => {
+                const deviceId = item.querySelector(`[name="condition_device_${index}"]`).value;
+                const type = item.querySelector(`[name="condition_type_${index}"]`).value;
+                const value = item.querySelector(`[name="condition_value_${index}"]`).value;
+                const operator = item.querySelector(`[name="condition_operator_${index}"]`).value;
+                
+                conditions.push({ deviceId, type, value, operator });
+            });
+            
+            const actions = [];
+            const actionItems = document.querySelectorAll('.action-item');
+            actionItems.forEach((item, index) => {
+                const deviceId = item.querySelector(`[name="action_device_${index}"]`).value;
+                const value = item.querySelector(`[name="action_value_${index}"]`).value;
+                
+                actions.push({ deviceId, value });
+            });
+            
+            const ruleData = {
+                id: ruleId,
+                name,
+                enabled,
+                conditions,
+                actions
+            };
+            
+            const method = ruleId ? 'PUT' : 'POST';
+            
+            fetch('/api/rules', {
+                method: method,
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(ruleData)
+            })
+            .then(r => r.json())
+            .then(() => {
+                clearRuleForm();
+                updateRules();
+            })
+            .catch(err => console.error('saveRule failed:', err));
+        });
+        
+        // 初始添加一个条件和一个动作
+        document.addEventListener('DOMContentLoaded', function() {
+            const ruleFormContainer = document.getElementById('rule-form-container');
+            if (ruleFormContainer) {
+                addCondition();
+                addAction();
+            }
+        });
+        
         // ===== JS 结束 =====
     </script>
 </body>

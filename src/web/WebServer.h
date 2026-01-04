@@ -14,6 +14,8 @@
 #include "../core/AlarmManager.h"
 #include "../utils/SPIFFSStorage.h"
 #include "../utils/ConfigManager.h"
+#include "../utils/DatabaseManager.h"
+#include "../core/RuleEngine.h"
 
 class WebServer {
 public:
@@ -25,8 +27,10 @@ public:
      * @param alarmManager 告警管理器实例
      * @param spiffsStorage SPIFFS存储实例
      * @param configManager 配置管理器实例
+     * @param databaseManager 数据库管理器实例
+     * @param ruleEngine 规则引擎实例
      */
-    WebServer(DeviceManager& deviceManager, EnvironmentManager& environmentManager, WiFiManager& wiFiManager, AlarmManager& alarmManager, SPIFFSStorage& spiffsStorage, ConfigManager& configManager);
+    WebServer(DeviceManager& deviceManager, EnvironmentManager& environmentManager, WiFiManager& wiFiManager, AlarmManager& alarmManager, SPIFFSStorage& spiffsStorage, ConfigManager& configManager, DatabaseManager& databaseManager, RuleEngine& ruleEngine);
     
     /**
      * @brief WebServer析构函数
@@ -65,6 +69,8 @@ private:
     AlarmManager& alarmManager;         // 告警管理器引用
     SPIFFSStorage& spiffsStorage;       // SPIFFS存储引用
     ConfigManager& configManager;       // 配置管理器引用
+    DatabaseManager& databaseManager;   // 数据库管理器引用
+    RuleEngine& ruleEngine;             // 规则引擎引用
     bool running;                       // 服务器运行状态
     
     /**
@@ -134,6 +140,65 @@ private:
      * @param json JSON配置数据
      */
     void handleUpdateConfig(AsyncWebServerRequest* request, const JsonVariantConst& json);
+    
+    /**
+     * @brief 处理管理员登录请求
+     * @param request Web请求
+     * @param json JSON登录数据
+     */
+    void handleAdminLogin(AsyncWebServerRequest* request, const JsonVariantConst& json);
+    
+    /**
+     * @brief 处理创建设备API请求
+     * @param request Web请求
+     * @param json JSON设备数据
+     */
+    void handleCreateDevice(AsyncWebServerRequest* request, const JsonVariantConst& json);
+    
+    /**
+     * @brief 处理删除设备API请求
+     * @param request Web请求
+     */
+    void handleDeleteDevice(AsyncWebServerRequest* request);
+    
+    /**
+     * @brief 处理编辑设备API请求
+     * @param request Web请求
+     * @param json JSON设备数据
+     */
+    void handleEditDevice(AsyncWebServerRequest* request, const JsonVariantConst& json);
+    
+    /**
+     * @brief 处理获取传感器数据API请求
+     * @param request Web请求
+     */
+    void handleGetSensorData(AsyncWebServerRequest* request);
+    
+    /**
+     * @brief 处理创建规则API请求
+     * @param request Web请求
+     * @param json JSON规则数据
+     */
+    void handleCreateRule(AsyncWebServerRequest* request, const JsonVariantConst& json);
+    
+    /**
+     * @brief 处理获取所有规则API请求
+     * @param request Web请求
+     */
+    void handleGetRules(AsyncWebServerRequest* request);
+    
+    /**
+     * @brief 处理更新规则API请求
+     * @param request Web请求
+     * @param json JSON规则数据
+     */
+    void handleUpdateRule(AsyncWebServerRequest* request, const JsonVariantConst& json);
+    
+    /**
+     * @brief 处理删除规则API请求
+     * @param request Web请求
+     */
+    void handleDeleteRule(AsyncWebServerRequest* request);
     
     /**
      * @brief 发送JSON响应

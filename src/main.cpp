@@ -10,6 +10,7 @@
 
 #include "utils/WiFiManager.h"
 #include "utils/GPIOController.h"
+#include "utils/DatabaseManager.h"
 
 #include "web/WebServer.h"
 #include "utils/DataLogger.h"
@@ -30,10 +31,11 @@ ConfigManager configManager(spiffsStorage);
 WiFiManager wiFiManager(configManager.getWiFiSsid(), configManager.getWiFiPassword());
 DeviceManager deviceManager;                 // ✔ 正确：无参构造
 EnvironmentManager environmentManager;
-RuleEngine ruleEngine;
 DataLogger dataLogger(&spiffsStorage, "/logs.txt", configManager.getMaxLogSize());
 AlarmManager alarmManager(&dataLogger, &spiffsStorage);
-WebServer webServer(deviceManager, environmentManager, wiFiManager, alarmManager, spiffsStorage, configManager);
+DatabaseManager databaseManager(configManager); // 数据库管理器
+RuleEngine ruleEngine(databaseManager);
+WebServer webServer(deviceManager, environmentManager, wiFiManager, alarmManager, spiffsStorage, configManager, databaseManager, ruleEngine);
 
 
 // ===== 引脚定义 =====
@@ -161,21 +163,48 @@ void setup() {
   webServer.initialize();
   webServer.start();
 
+  Serial.println("=== Init DatabaseManager ===");
+  if (databaseManager.init()) {
+    Serial.println("Database connected successfully");
+  } else {
+    Serial.println("Database connection failed, will retry...");
+  }
+
   Serial.println("=== SETUP END ===");
 }
 
 // ===== Arduino loop =====
 void loop() {
   wiFiManager.update();
+  databaseManager.maintenance(); // 数据库定期维护
+  
   static unsigned long lastEnvCollect = 0;
   if (millis() - lastEnvCollect >= 2000) {
     lastEnvCollect = millis();
     environmentManager.collectAllSensorData();
+    
+    // 保存传感器数据到数据库
+    float temperature = environmentManager.collectSensorData("temperature");
+    float humidity = environmentManager.collectSensorData("humidity");
+    float light = environmentManager.collectSensorData("light");
+    float smoke = environmentManager.collectSensorData("smoke");
+    
+    if (!isnan(temperature)) {
+      databaseManager.saveSensorData("DHT22", "temperature", temperature);
+    }
+    if (!isnan(humidity)) {
+      databaseManager.saveSensorData("DHT22", "humidity", humidity);
+    }
+    if (!isnan(light)) {
+      databaseManager.saveSensorData("LDR", "light", light);
+    }
+    if (!isnan(smoke)) {
+      databaseManager.saveSensorData("MQ2", "smoke", smoke);
+    }
+    
     // 只有在数据采集后才检查告警
     std::vector<AlarmStatus> alarms = alarmManager.checkAlarms(environmentManager);
     
-    
-
     // 只有当有告警触发时，才执行联动 (用于控制灯光等其他设备)
     if (!alarms.empty()) {
         alarmManager.executeAlarmActions(deviceManager);

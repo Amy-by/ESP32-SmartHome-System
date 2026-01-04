@@ -64,11 +64,6 @@
 | 2025-12-11 09:10:00 | 020602 | ERROR | 系统测试框架 | testSystemIntegration | 找不到map、utility、algorithm等必要头文件 | 添加必要的头文件：<map>、<utility>、<algorithm> | 已解决 |
 | 2025-12-11 09:10:00 | 020303 | WARN | 环境监测模块 | - | NAN宏重定义警告 | - | - |
 | 2025-12-10 17:04:58 | 020501 | WARN | WebServer | 构造函数 | HTML内容未正确加载检查缺失 | 添加HTML内容加载验证代码 | 已解决 |
-
-### 2.7 系统集成测试阶段
-
-| 时间戳 | 错误代码 | 错误级别 | 模块 | 函数 | 描述 | 解决方案 | 状态 |
-|-------|---------|---------|------|------|------|--------|------|
 | 2025-12-11 09:11:50 | 020601 | ERROR | test_system_integration | SerialPort类 | 模板参数推导错误，"Serial << ... << endl"的输出语句与标准库定义冲突 | 为SerialPort类添加对endl的支持，新增operator<<重载函数处理std::ostream操纵器 | 已解决 |
 | 2025-12-11 09:11:50 | 020602 | ERROR | test_system_integration | AlarmManager类 | 缺少map和utility头文件，导致alarmThresholds和alarmStates未声明 | 添加#include <map>和#include <utility>头文件 | 已解决 |
 | 2025-12-11 09:11:50 | 020603 | ERROR | test_system_integration | DataProcessor类 | sort、max_element和min_element未声明，编译器提示可能是指sqrt函数 | 添加#include <algorithm>头文件 | 已解决 |
@@ -82,6 +77,18 @@
 | 2025-12-12 20:40:00 | 050103 | INFO | 代码质量 | cppcheck | 已运行静态分析，存在建议优化项（构造显式性、未使用字段、变量遮蔽等） | 记录到 out/cppcheck.txt 与 out/cppcheck_summary.md，待构建后择机修复 | 未解决 |
 | 2025-12-12 20:47:58 | 050104 | INFO | 构建系统 | native | 已添加本地 native 构建环境并运行通过（仅核心逻辑 DataProcessor） | 通过 native/Makefile 构建并验证输出，作为无硬件时的简化验证 | 已解决 |
 
+### 2.9 数据库与CRUD功能开发阶段
+
+| 时间戳 | 错误代码 | 错误级别 | 模块 | 函数 | 描述 | 解决方案 | 状态 |
+|-------|---------|---------|------|------|------|--------|------|
+| 2025-12-25 15:08:24 | 020502 | ERROR | WebServer | handleCreateDevice | WebServer.cpp中缺少handleCreateDevice和handleDeleteDevice函数声明，导致编译失败 | 在WebServer.h中添加缺失的函数声明 | 已解决 |
+| 2025-12-25 15:08:24 | 030104 | ERROR | MockServer | 模拟测试服务器 | Python默认http.server不支持POST/PUT/DELETE方法，导致501错误 | 创建自定义MockRequestHandler类处理所有HTTP方法 | 已解决 |
+| 2025-12-25 15:08:24 | 020502 | ERROR | Web界面 | 前端API调用 | 前端使用http://localhost:8080测试地址，与生产环境相对路径冲突 | 将所有fetch调用中的绝对URL改为相对路径 | 已解决 |
+| 2025-12-25 15:08:24 | 020301 | ERROR | MockServer | 传感器数据处理 | 前端期望type, value, unit格式，但模拟服务器返回deviceId, temperature, humidity | 更新模拟服务器中的sensor_data结构，使其与前端期望一致 | 已解决 |
+| 2025-12-25 15:08:24 | 020502 | ERROR | MockServer | URL路径处理 | 请求如/api/admin/sensor-data?type=temperature因路径包含查询参数导致404错误 | 在do_GET方法中使用path.split('?')[0]去除查询参数后再匹配路径 | 已解决 |
+| 2025-12-25 15:08:24 | 020403 | ERROR | MockServer | 设备删除处理 | 删除不存在的设备返回成功而非错误 | 在删除设备前添加存在性检查，不存在则返回404错误 | 已解决 |
+| 2025-12-25 15:08:24 | 020502 | ERROR | Web界面 | 传感器数据解析 | 前端期望sensorData字段，但模拟服务器返回data字段 | 更新前端代码，使用data.sensorData获取传感器数据 | 已解决 |
+
 ## 3. 错误统计
 
 ### 3.1 按模块统计
@@ -90,24 +97,29 @@
 |------|-------|-------|-------|
 | GPIOController | 2 | 2 | 0 |
 | DeviceManager | 1 | 0 | 1 |
-| SmartLight | 1 | 1 | 0 |
+| SmartLight | 2 | 2 | 0 |
 | test_environment_logic | 1 | 1 | 0 |
 | EEPROMStorage | 1 | 1 | 0 |
 | SPIFFSStorage | 1 | 1 | 0 |
 | DataLogger | 1 | 1 | 0 |
 | test_application_logic | 1 | 1 | 0 |
-| WebServer | 1 | 1 | 0 |
-| Web界面 | 1 | 1 | 0 |
+| WebServer | 2 | 2 | 0 |
+| Web界面 | 2 | 2 | 0 |
 | test_system_integration | 3 | 3 | 0 |
-| 总计 | 14 | 13 | 1 |
+| MockServer | 5 | 5 | 0 |
+| 构建系统 | 4 | 2 | 2 |
+| 硬件连接 | 3 | 3 | 0 |
+| 环境监测模块 | 1 | 0 | 1 |
+| 总计 | 32 | 29 | 3 |
 
 ### 3.2 按错误级别统计
 
 | 错误级别 | 数量 |
 |---------|------|
-| ERROR | 10 |
-| WARN | 3 |
-| 总计 | 13 |
+| ERROR | 24 |
+| WARN | 7 |
+| INFO | 1 |
+| 总计 | 32 |
 
 ##### 4. 错误趋势
 
@@ -116,4 +128,7 @@
 | 日期 | 错误数 |
 |------|-------|
 | 2025-12-10 | 9 |
-| 2025-12-11 | 3 |
+| 2025-12-11 | 7 |
+| 2025-12-12 | 4 |
+| 2025-12-17 | 4 |
+| 2025-12-25 | 8 |

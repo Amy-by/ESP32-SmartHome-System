@@ -7,7 +7,7 @@
 #include "../core/AlarmManager.h"
 
 // 构造函数
-WebServer::WebServer(DeviceManager& deviceManager, EnvironmentManager& environmentManager, WiFiManager& wiFiManager, AlarmManager& alarmManager, SPIFFSStorage& spiffsStorage, ConfigManager& configManager)
+WebServer::WebServer(DeviceManager& deviceManager, EnvironmentManager& environmentManager, WiFiManager& wiFiManager, AlarmManager& alarmManager, SPIFFSStorage& spiffsStorage, ConfigManager& configManager, DatabaseManager& databaseManager, RuleEngine& ruleEngine)
     : server(80),
       ws("/ws"),
       deviceManager(deviceManager),
@@ -16,6 +16,8 @@ WebServer::WebServer(DeviceManager& deviceManager, EnvironmentManager& environme
       alarmManager(alarmManager),
       spiffsStorage(spiffsStorage),
       configManager(configManager),
+      databaseManager(databaseManager),
+      ruleEngine(ruleEngine),
       running(false)
 {
 }
@@ -60,6 +62,41 @@ void WebServer::notifyDeviceUpdate(Device* device) {
 
 // 配置API路由
 void WebServer::setupApiRoutes() {
+    // 管理员登录API
+    server.on("/api/admin/login", HTTP_POST, [this](AsyncWebServerRequest* request) {}, 
+             nullptr, [this](AsyncWebServerRequest* request, uint8_t* data, size_t len, size_t index, size_t total) {
+        DynamicJsonDocument doc(1024);
+        deserializeJson(doc, data, len);
+        handleAdminLogin(request, doc.as<JsonVariantConst>());
+    });
+    
+    // 数据库管理API
+    // 创建设备
+    server.on("/api/admin/devices", HTTP_POST, [this](AsyncWebServerRequest* request) {}, 
+             nullptr, [this](AsyncWebServerRequest* request, uint8_t* data, size_t len, size_t index, size_t total) {
+        DynamicJsonDocument doc(1024);
+        deserializeJson(doc, data, len);
+        handleCreateDevice(request, doc.as<JsonVariantConst>());
+    });
+    
+    // 删除设备
+    server.on("/api/admin/devices", HTTP_DELETE, [this](AsyncWebServerRequest* request) {
+        handleDeleteDevice(request);
+    });
+    
+    // 编辑设备
+    server.on("/api/admin/devices", HTTP_PUT, [this](AsyncWebServerRequest* request) {}, 
+             nullptr, [this](AsyncWebServerRequest* request, uint8_t* data, size_t len, size_t index, size_t total) {
+        DynamicJsonDocument doc(1024);
+        deserializeJson(doc, data, len);
+        handleEditDevice(request, doc.as<JsonVariantConst>());
+    });
+    
+    // 获取传感器数据（带过滤）
+    server.on("/api/admin/sensor-data", HTTP_GET, [this](AsyncWebServerRequest* request) {
+        handleGetSensorData(request);
+    });
+    
     // 获取所有设备状态
     server.on("/api/devices", HTTP_GET, [this](AsyncWebServerRequest* request) {
         handleGetDevices(request);
@@ -120,6 +157,39 @@ void WebServer::setupApiRoutes() {
         deserializeJson(doc, data, len);
         handleUpdateConfig(request, doc.as<JsonVariantConst>());
     });
+    
+    // 规则管理API
+    // 创建规则
+    server.on("/api/rules", HTTP_POST, [this](AsyncWebServerRequest* request) {}, 
+             nullptr, [this](AsyncWebServerRequest* request, uint8_t* data, size_t len, size_t index, size_t total) {
+        DynamicJsonDocument doc(2048);
+        deserializeJson(doc, data, len);
+        handleCreateRule(request, doc.as<JsonVariantConst>());
+    });
+    
+    // 获取所有规则
+    server.on("/api/rules", HTTP_GET, [this](AsyncWebServerRequest* request) {
+        handleGetRules(request);
+    });
+    
+    // 更新规则（支持PUT与POST）
+    server.on("/api/rules", HTTP_PUT, [this](AsyncWebServerRequest* request) {}, 
+             nullptr, [this](AsyncWebServerRequest* request, uint8_t* data, size_t len, size_t index, size_t total) {
+        DynamicJsonDocument doc(2048);
+        deserializeJson(doc, data, len);
+        handleUpdateRule(request, doc.as<JsonVariantConst>());
+    });
+    server.on("/api/rules", HTTP_POST, [this](AsyncWebServerRequest* request) {}, 
+             nullptr, [this](AsyncWebServerRequest* request, uint8_t* data, size_t len, size_t index, size_t total) {
+        DynamicJsonDocument doc(2048);
+        deserializeJson(doc, data, len);
+        handleUpdateRule(request, doc.as<JsonVariantConst>());
+    });
+    
+    // 删除规则
+    server.on("/api/rules", HTTP_DELETE, [this](AsyncWebServerRequest* request) {
+        handleDeleteRule(request);
+    });
 }
 
 // 配置网页路由
@@ -142,30 +212,35 @@ void WebServer::setupWebSocketRoutes() {
 
 // 处理设备状态API请求
 void WebServer::handleGetDevices(AsyncWebServerRequest* request) {
-    Serial.print("Device count in WebServer: ");
-    Serial.println(deviceManager.getAllDevices().size());
+    Serial.println("从数据库获取设备列表...");
     DynamicJsonDocument doc(2048);
     JsonArray devices = doc.createNestedArray("devices");
     
-    // 获取所有设备
-    std::vector<Device*> deviceList = deviceManager.getAllDevices();
-    
-    // 遍历设备列表，添加设备信息到JSON
-    for (Device* device : deviceList) {
-        JsonObject deviceJson = devices.createNestedObject();
-        deviceJson["id"] = device->getId();
-        deviceJson["name"] = device->getId();
-        deviceJson["type"] = device->getType();
-        deviceJson["status"] = device->getStatus();
+    // 从数据库获取所有设备
+    String result;
+    if (databaseManager.getAllDevices(result)) {
+        DynamicJsonDocument dbDoc(1024);
+        deserializeJson(dbDoc, result);
         
-        if (device->getType() == "light") {
-            SmartLight* light = static_cast<SmartLight*>(device);
-            deviceJson["brightness"] = (int)(light->getBrightness() * 100 / 255);
+        // 遍历数据库返回的设备列表
+        for (JsonObject deviceJson : dbDoc["rows"].as<JsonArray>()) {
+            JsonObject newDevice = devices.createNestedObject();
+            newDevice["id"] = deviceJson["id"].as<String>();
+            newDevice["name"] = deviceJson["name"].as<String>();
+            newDevice["type"] = deviceJson["type"].as<String>();
+            newDevice["status"] = deviceJson["status"].as<int>() == 1;
+            
+            if (newDevice["type"] == "light") {
+                newDevice["brightness"] = deviceJson["brightness"].as<int>();
+            }
         }
+        
+        doc["status"] = "success";
+        doc["message"] = "从数据库获取设备状态成功";
+    } else {
+        doc["status"] = "error";
+        doc["message"] = "从数据库获取设备状态失败";
     }
-    
-    doc["status"] = "success";
-    doc["message"] = "获取设备状态成功";
     
     sendJsonResponse(request, doc);
 }
@@ -180,31 +255,37 @@ void WebServer::handleGetDevice(AsyncWebServerRequest* request) {
         return;
     }
     
-    // 获取设备
-    Device* device = deviceManager.getDevice(deviceId);
+    // 从数据库获取设备信息
+    String result;
+    String query = "SELECT * FROM devices WHERE id = " + deviceId;
     
-    if (!device) {
-        request->send(404, "text/plain", "设备不存在");
-        return;
+    if (databaseManager.executeSelectQuery(query, result)) {
+        DynamicJsonDocument dbDoc(512);
+        deserializeJson(dbDoc, result);
+        
+        if (dbDoc["rows"].size() > 0) {
+            DynamicJsonDocument doc(1024);
+            JsonObject deviceJson = doc.createNestedObject("device");
+            
+            JsonObject dbDevice = dbDoc["rows"][0].as<JsonObject>();
+            deviceJson["id"] = dbDevice["id"].as<String>();
+            deviceJson["name"] = dbDevice["name"].as<String>();
+            deviceJson["type"] = dbDevice["type"].as<String>();
+            deviceJson["status"] = dbDevice["status"].as<int>() == 1;
+            
+            if (deviceJson["type"] == "light") {
+                deviceJson["brightness"] = dbDevice["brightness"].as<int>();
+            }
+            
+            doc["status"] = "success";
+            doc["message"] = "从数据库获取设备状态成功";
+            
+            sendJsonResponse(request, doc);
+            return;
+        }
     }
     
-    DynamicJsonDocument doc(1024);
-    JsonObject deviceJson = doc.createNestedObject("device");
-    deviceJson["id"] = device->getId();
-    deviceJson["name"] = device->getId();
-    deviceJson["type"] = device->getType();
-    deviceJson["status"] = device->getStatus();
-    
-    // 如果是智能灯，添加亮度信息
-    if (device->getType() == "light") {
-        SmartLight* light = static_cast<SmartLight*>(device);
-        deviceJson["brightness"] = (int)(light->getBrightness() * 100 / 255);
-    }
-    
-    doc["status"] = "success";
-    doc["message"] = "获取设备状态成功";
-    
-    sendJsonResponse(request, doc);
+    request->send(404, "text/plain", "设备不存在或数据库查询失败");
 }
 
 // 处理设备控制API请求
@@ -270,6 +351,15 @@ void WebServer::handleControlDevice(AsyncWebServerRequest* request, const JsonVa
     }
 
     if (result) {
+        // 更新数据库中的设备状态
+        int dbDeviceId = deviceId.toInt();
+        if (hasStatus) {
+            databaseManager.updateDeviceStatus(dbDeviceId, status);
+        }
+        if (hasBrightness && device->getType() == "light") {
+            databaseManager.updateDeviceBrightness(dbDeviceId, brightness);
+        }
+        
         broadcastDeviceUpdate(device);
         DynamicJsonDocument doc(256);
         doc["status"] = "success";
@@ -283,31 +373,66 @@ void WebServer::handleControlDevice(AsyncWebServerRequest* request, const JsonVa
 
 // 处理环境数据API请求
 void WebServer::handleGetEnvironmentData(AsyncWebServerRequest* request) {
-    DynamicJsonDocument doc(1024);
+    DynamicJsonDocument doc(4096);
     JsonObject environment = doc.createNestedObject("environment");
     
-    // 获取温度数据
+    // 获取实时温度数据
     float temperature = environmentManager.collectSensorData("temperature");
     if (!isnan(temperature)) {
         environment["temperature"] = temperature;
     }
     
-    // 获取湿度数据
+    // 获取实时湿度数据
     float humidity = environmentManager.collectSensorData("humidity");
     if (!isnan(humidity)) {
         environment["humidity"] = humidity;
     }
     
-    // 获取光照强度数据
+    // 获取实时光照强度数据
     float lightIntensity = environmentManager.collectSensorData("light");
     if (!isnan(lightIntensity)) {
         environment["lightIntensity"] = lightIntensity;
     }
     
-    // 获取烟雾浓度数据
+    // 获取实时烟雾浓度数据
     float smokeDensity = environmentManager.collectSensorData("smoke");
     if (!isnan(smokeDensity)) {
         environment["smokeDensity"] = smokeDensity;
+    }
+    
+    // 添加历史环境数据
+    JsonObject historical = doc.createNestedObject("historical");
+    
+    // 获取温度历史数据
+    String tempHistory;
+    if (databaseManager.getSensorReadings("DHT22", 10, tempHistory)) {
+        DynamicJsonDocument tempDoc(2048);
+        deserializeJson(tempDoc, tempHistory);
+        historical["temperature"] = tempDoc["rows"];
+    }
+    
+    // 获取湿度历史数据
+    String humidityHistory;
+    if (databaseManager.getSensorReadings("DHT22", 10, humidityHistory)) {
+        DynamicJsonDocument humidityDoc(2048);
+        deserializeJson(humidityDoc, humidityHistory);
+        historical["humidity"] = humidityDoc["rows"];
+    }
+    
+    // 获取光照历史数据
+    String lightHistory;
+    if (databaseManager.getSensorReadings("BH1750", 10, lightHistory)) {
+        DynamicJsonDocument lightDoc(2048);
+        deserializeJson(lightDoc, lightHistory);
+        historical["light"] = lightDoc["rows"];
+    }
+    
+    // 获取烟雾历史数据
+    String smokeHistory;
+    if (databaseManager.getSensorReadings("MQ2", 10, smokeHistory)) {
+        DynamicJsonDocument smokeDoc(2048);
+        deserializeJson(smokeDoc, smokeHistory);
+        historical["smoke"] = smokeDoc["rows"];
     }
     
     doc["status"] = "success";
@@ -333,15 +458,42 @@ void WebServer::handleGetWiFiStatus(AsyncWebServerRequest* request) {
 }
 
 void WebServer::handleGetAlarmSettings(AsyncWebServerRequest* request) {
-    DynamicJsonDocument doc(512);
-    AlarmThreshold th = alarmManager.getThreshold("smoke");
-    JsonObject alarm = doc.createNestedObject("alarm");
-    alarm["sensorId"] = "smoke";
-    alarm["minThreshold"] = th.minThreshold;
-    alarm["maxThreshold"] = th.maxThreshold;
-    alarm["enabled"] = th.enabled;
-    doc["status"] = "success";
-    doc["message"] = "获取告警阈值成功";
+    DynamicJsonDocument doc(1024);
+    JsonArray alarms = doc.createNestedArray("alarms");
+    
+    // 从数据库获取所有告警阈值
+    String result;
+    if (databaseManager.getAllSensorTypes(result)) {
+        DynamicJsonDocument sensorTypesDoc(512);
+        deserializeJson(sensorTypesDoc, result);
+        
+        for (JsonObject sensorType : sensorTypesDoc["rows"].as<JsonArray>()) {
+            String sensorId = sensorType["id"].as<String>();
+            String thresholdResult;
+            
+            if (databaseManager.getAlarmThresholds(sensorId, thresholdResult)) {
+                DynamicJsonDocument thresholdDoc(512);
+                deserializeJson(thresholdDoc, thresholdResult);
+                
+                if (thresholdDoc["rows"].size() > 0) {
+                    JsonObject thresholdJson = thresholdDoc["rows"][0].as<JsonObject>();
+                    JsonObject alarm = alarms.createNestedObject();
+                    
+                    alarm["sensorId"] = thresholdJson["sensor_id"].as<String>();
+                    alarm["minThreshold"] = thresholdJson["min_threshold"].as<float>();
+                    alarm["maxThreshold"] = thresholdJson["max_threshold"].as<float>();
+                    alarm["enabled"] = thresholdJson["enabled"].as<int>() == 1;
+                }
+            }
+        }
+        
+        doc["status"] = "success";
+        doc["message"] = "从数据库获取告警阈值成功";
+    } else {
+        doc["status"] = "error";
+        doc["message"] = "从数据库获取告警阈值失败";
+    }
+    
     sendJsonResponse(request, doc);
 }
 
@@ -349,24 +501,47 @@ void WebServer::handleUpdateAlarmSettings(AsyncWebServerRequest* request, const 
     String sensorId = json.containsKey("sensorId") ? json["sensorId"].as<String>() : String("smoke");
     AlarmThreshold th = alarmManager.getThreshold(sensorId);
     bool hasAny = false;
+    float minThreshold = th.minThreshold;
+    float maxThreshold = th.maxThreshold;
+    bool enabled = th.enabled;
+    
     if (json.containsKey("minThreshold")) {
-        th.minThreshold = json["minThreshold"].as<float>();
+        minThreshold = json["minThreshold"].as<float>();
+        th.minThreshold = minThreshold;
         hasAny = true;
     }
     if (json.containsKey("maxThreshold")) {
-        th.maxThreshold = json["maxThreshold"].as<float>();
+        maxThreshold = json["maxThreshold"].as<float>();
+        th.maxThreshold = maxThreshold;
         hasAny = true;
     }
     if (json.containsKey("enabled")) {
-        th.enabled = json["enabled"].as<bool>();
+        enabled = json["enabled"].as<bool>();
+        th.enabled = enabled;
         hasAny = true;
     }
     th.sensorId = sensorId;
+    
     if (!hasAny) {
         request->send(400, "application/json; charset=utf-8",
                       "{\"status\":\"error\",\"message\":\"缺少阈值参数\"}");
         return;
     }
+    
+    // 更新数据库中的告警阈值
+    String sensorType;
+    if (sensorId == "DHT22") {
+        sensorType = "temperature,humidity";
+    } else if (sensorId == "BH1750") {
+        sensorType = "light";
+    } else if (sensorId == "MQ2") {
+        sensorType = "smoke";
+    } else {
+        sensorType = "unknown";
+    }
+    
+    databaseManager.updateAlarmThreshold(sensorId, sensorType, minThreshold, maxThreshold, enabled);
+    
     bool ok = alarmManager.updateThreshold(th);
     if (ok) {
         if (json.containsKey("enabled") && th.enabled) {
@@ -476,23 +651,26 @@ void WebServer::handleUpdateConfig(AsyncWebServerRequest* request, const JsonVar
     JsonDocument& config = configManager.getFullConfig();
     
     // 遍历所有配置项并更新
-    for (JsonPairConst kv : configData) {
-        const char* key = kv.key().c_str();
-        const JsonVariantConst& value = kv.value();
+    JsonObjectConst configObj = configData.as<JsonObjectConst>();
+    for (JsonObjectConst::iterator it = configObj.begin(); it != configObj.end(); ++it) {
+        const char* key = it->key().c_str();
+        const JsonVariantConst& value = it->value();
         
         // 特殊处理嵌套配置
         if (value.is<JsonObjectConst>()) {
             // 如果是嵌套对象，递归更新
             JsonObject destObj = config[key].to<JsonObject>();
-            for (JsonPairConst innerKv : value.as<JsonObjectConst>()) {
-                const char* innerKey = innerKv.key().c_str();
-                const JsonVariantConst& innerValue = innerKv.value();
+            JsonObjectConst valueObj = value.as<JsonObjectConst>();
+            for (JsonObjectConst::iterator innerIt = valueObj.begin(); innerIt != valueObj.end(); ++innerIt) {
+                const char* innerKey = innerIt->key().c_str();
+                const JsonVariantConst& innerValue = innerIt->value();
                 
                 // 处理更深层次的嵌套（如static_ip）
                 if (innerValue.is<JsonObjectConst>()) {
                     JsonObject innerDestObj = destObj[innerKey].to<JsonObject>();
-                    for (JsonPairConst deepKv : innerValue.as<JsonObjectConst>()) {
-                        innerDestObj[deepKv.key()] = deepKv.value();
+                    JsonObjectConst innerValueObj = innerValue.as<JsonObjectConst>();
+                    for (JsonObjectConst::iterator deepIt = innerValueObj.begin(); deepIt != innerValueObj.end(); ++deepIt) {
+                        innerDestObj[deepIt->key()] = deepIt->value();
                     }
                 } else {
                     destObj[innerKey] = innerValue;
@@ -513,5 +691,418 @@ void WebServer::handleUpdateConfig(AsyncWebServerRequest* request, const JsonVar
         doc["status"] = "error";
         doc["message"] = "配置保存失败";
         sendJsonResponse(request, doc, 500);
+    }
+}
+
+// 处理管理员登录API请求
+void WebServer::handleAdminLogin(AsyncWebServerRequest* request, const JsonVariantConst& json) {
+    DynamicJsonDocument doc(256);
+    
+    // 检查是否提供了用户名和密码
+    if (!json.containsKey("username") || !json.containsKey("password")) {
+        request->send(400, "application/json; charset=utf-8", 
+                      "{\"status\":\"error\",\"message\":\"缺少用户名或密码\"}");
+        return;
+    }
+    
+    // 获取提供的用户名和密码
+    String username = json["username"].as<String>();
+    String password = json["password"].as<String>();
+    
+    // 从配置中获取管理员凭据
+    String adminUsername = configManager.getAdminUsername();
+    String adminPassword = configManager.getAdminPassword();
+    
+    // 验证凭据
+    if (username == adminUsername && password == adminPassword) {
+        doc["status"] = "success";
+        doc["message"] = "登录成功";
+        sendJsonResponse(request, doc);
+    } else {
+        doc["status"] = "error";
+        doc["message"] = "用户名或密码错误";
+        sendJsonResponse(request, doc, 401);
+    }
+}
+
+// 处理创建设备API请求
+void WebServer::handleCreateDevice(AsyncWebServerRequest* request, const JsonVariantConst& json) {
+    DynamicJsonDocument doc(256);
+    
+    // 检查必要参数
+    if (!json.containsKey("name") || !json.containsKey("type") || !json.containsKey("pin")) {
+        request->send(400, "application/json; charset=utf-8", 
+                      "{\"status\":\"error\",\"message\":\"缺少必要参数：name、type或pin\"}");
+        return;
+    }
+    
+    String name = json["name"].as<String>();
+    String type = json["type"].as<String>();
+    int pin = json["pin"].as<int>();
+    bool status = json.containsKey("status") ? json["status"].as<bool>() : false;
+    int brightness = json.containsKey("brightness") ? json["brightness"].as<int>() : 0;
+    
+    // 调用数据库管理器创建设备
+    if (databaseManager.createDevice(name, type, pin, status, brightness)) {
+        doc["status"] = "success";
+        doc["message"] = "设备创建成功";
+        sendJsonResponse(request, doc);
+    } else {
+        doc["status"] = "error";
+        doc["message"] = "设备创建失败";
+        sendJsonResponse(request, doc, 500);
+    }
+}
+
+// 处理删除设备API请求
+void WebServer::handleDeleteDevice(AsyncWebServerRequest* request) {
+    DynamicJsonDocument doc(256);
+    
+    // 检查是否提供了设备ID
+    if (!request->hasParam("id")) {
+        request->send(400, "application/json; charset=utf-8", 
+                      "{\"status\":\"error\",\"message\":\"缺少设备ID\"}");
+        return;
+    }
+    
+    String idParam = request->getParam("id")->value();
+    int deviceId = idParam.toInt();
+    
+    // 调用数据库管理器删除设备
+    if (databaseManager.deleteDevice(deviceId)) {
+        doc["status"] = "success";
+        doc["message"] = "设备删除成功";
+        sendJsonResponse(request, doc);
+    } else {
+        doc["status"] = "error";
+        doc["message"] = "设备删除失败";
+        sendJsonResponse(request, doc, 500);
+    }
+}
+
+// 处理编辑设备API请求
+void WebServer::handleEditDevice(AsyncWebServerRequest* request, const JsonVariantConst& json) {
+    DynamicJsonDocument doc(256);
+    
+    // 检查是否提供了设备ID
+    if (!json.containsKey("id")) {
+        request->send(400, "application/json; charset=utf-8", 
+                      "{\"status\":\"error\",\"message\":\"缺少设备ID\"}");
+        return;
+    }
+    
+    int deviceId = json["id"].as<int>();
+    
+    // 构建更新SQL语句
+    String updateQuery = "UPDATE devices SET ";
+    bool hasUpdate = false;
+    
+    if (json.containsKey("name")) {
+        if (hasUpdate) updateQuery += ", ";
+        updateQuery += "name = '" + json["name"].as<String>() + "'";
+        hasUpdate = true;
+    }
+    
+    if (json.containsKey("type")) {
+        if (hasUpdate) updateQuery += ", ";
+        updateQuery += "type = '" + json["type"].as<String>() + "'";
+        hasUpdate = true;
+    }
+    
+    if (json.containsKey("pin")) {
+        if (hasUpdate) updateQuery += ", ";
+        updateQuery += "pin = " + String(json["pin"].as<int>());
+        hasUpdate = true;
+    }
+    
+    if (json.containsKey("status")) {
+        if (hasUpdate) updateQuery += ", ";
+        updateQuery += "status = " + String(json["status"].as<bool>() ? 1 : 0);
+        hasUpdate = true;
+    }
+    
+    if (json.containsKey("brightness")) {
+        if (hasUpdate) updateQuery += ", ";
+        updateQuery += "brightness = " + String(json["brightness"].as<int>());
+        hasUpdate = true;
+    }
+    
+    if (!hasUpdate) {
+        request->send(400, "application/json; charset=utf-8", 
+                      "{\"status\":\"error\",\"message\":\"没有提供要更新的字段\"}");
+        return;
+    }
+    
+    updateQuery += " WHERE id = " + String(deviceId);
+    
+    // 执行更新操作
+    if (databaseManager.executeQuery(updateQuery)) {
+        doc["status"] = "success";
+        doc["message"] = "设备编辑成功";
+        sendJsonResponse(request, doc);
+    } else {
+        doc["status"] = "error";
+        doc["message"] = "设备编辑失败";
+        sendJsonResponse(request, doc, 500);
+    }
+}
+
+// 处理获取传感器数据API请求
+void WebServer::handleGetSensorData(AsyncWebServerRequest* request) {
+    DynamicJsonDocument doc(4096);
+    
+    // 获取查询参数
+    String sensorId = request->hasParam("sensorId") ? request->getParam("sensorId")->value() : "";
+    String sensorType = request->hasParam("type") ? request->getParam("type")->value() : "";
+    String limit = request->hasParam("limit") ? request->getParam("limit")->value() : "100";
+    String startTime = request->hasParam("startTime") ? request->getParam("startTime")->value() : "";
+    String endTime = request->hasParam("endTime") ? request->getParam("endTime")->value() : "";
+    
+    // 构建查询语句
+    String query = "SELECT * FROM sensor_data";
+    bool hasWhere = false;
+    
+    if (!sensorId.isEmpty()) {
+        query += hasWhere ? " AND " : " WHERE ";
+        query += "sensor_id = '" + sensorId + "'";
+        hasWhere = true;
+    }
+    
+    if (!sensorType.isEmpty()) {
+        query += hasWhere ? " AND " : " WHERE ";
+        query += "type = '" + sensorType + "'";
+        hasWhere = true;
+    }
+    
+    if (!startTime.isEmpty() && !endTime.isEmpty()) {
+        query += hasWhere ? " AND " : " WHERE ";
+        query += "timestamp BETWEEN '" + startTime + "' AND '" + endTime + "'";
+        hasWhere = true;
+    } else if (!startTime.isEmpty()) {
+        query += hasWhere ? " AND " : " WHERE ";
+        query += "timestamp >= '" + startTime + "'";
+        hasWhere = true;
+    } else if (!endTime.isEmpty()) {
+        query += hasWhere ? " AND " : " WHERE ";
+        query += "timestamp <= '" + endTime + "'";
+        hasWhere = true;
+    }
+    
+    // 添加排序和限制
+    query += " ORDER BY timestamp DESC LIMIT " + limit;
+    
+    // 执行查询
+    String result;
+    if (databaseManager.executeSelectQuery(query, result)) {
+        DynamicJsonDocument resultDoc(8192);
+        deserializeJson(resultDoc, result);
+        doc["status"] = "success";
+        doc["message"] = "获取传感器数据成功";
+        doc["data"] = resultDoc["rows"];
+        sendJsonResponse(request, doc);
+    } else {
+        doc["status"] = "error";
+        doc["message"] = "获取传感器数据失败";
+        sendJsonResponse(request, doc, 500);
+    }
+}
+
+// 处理创建规则API请求
+void WebServer::handleCreateRule(AsyncWebServerRequest* request, const JsonVariantConst& json) {
+    DynamicJsonDocument doc(1024);
+    
+    if (json.containsKey("name") && json.containsKey("enabled") && json.containsKey("conditions") && json.containsKey("actions")) {
+        String name = json["name"].as<String>();
+        bool enabled = json["enabled"].as<bool>();
+        
+        // 生成唯一规则ID（使用时间戳）
+        String id = "rule_" + String(millis());
+        
+        // 创建新规则
+        Rule* rule = new Rule(id, name, enabled);
+        
+        // 添加条件
+        if (json.containsKey("conditions")) {
+            JsonArrayConst conditions = json["conditions"].as<JsonArrayConst>();
+            for (JsonVariantConst condJson : conditions) {
+                if (condJson.containsKey("sensorId") && condJson.containsKey("threshold") && condJson.containsKey("operatorType")) {
+                    RuleCondition cond;
+                    cond.sensorId = condJson["sensorId"].as<String>();
+                    cond.threshold = condJson["threshold"].as<float>();
+                    cond.operatorType = condJson["operatorType"].as<String>();
+                    rule->addCondition(cond);
+                }
+            }
+        }
+        
+        // 添加动作
+        if (json.containsKey("actions")) {
+            JsonArrayConst actions = json["actions"].as<JsonArrayConst>();
+            for (JsonVariantConst actJson : actions) {
+                if (actJson.containsKey("deviceId") && actJson.containsKey("targetStatus")) {
+                    RuleAction act;
+                    act.deviceId = actJson["deviceId"].as<String>();
+                    act.targetStatus = actJson["targetStatus"].as<bool>();
+                    rule->addAction(act);
+                }
+            }
+        }
+        
+        // 添加规则到规则引擎
+        ruleEngine.addRule(rule);
+        
+        // 保存规则到SPIFFS
+        if (ruleEngine.saveRules()) {
+            doc["status"] = "success";
+            doc["message"] = "规则创建成功";
+            doc["data"]["id"] = rule->getId();
+            sendJsonResponse(request, doc);
+        } else {
+            doc["status"] = "error";
+            doc["message"] = "规则保存失败";
+            sendJsonResponse(request, doc, 500);
+        }
+    } else {
+        doc["status"] = "error";
+        doc["message"] = "参数不完整";
+        sendJsonResponse(request, doc, 400);
+    }
+}
+
+// 处理获取所有规则API请求
+void WebServer::handleGetRules(AsyncWebServerRequest* request) {
+    DynamicJsonDocument doc(4096);
+    JsonArray rulesArray = doc.createNestedArray("rules");
+    
+    // 获取所有规则
+    std::vector<Rule*> rules = ruleEngine.getAllRules();
+    
+    for (Rule* rule : rules) {
+        JsonObject ruleJson = rulesArray.createNestedObject();
+        ruleJson["id"] = rule->getId();
+        ruleJson["name"] = rule->getName();
+        ruleJson["enabled"] = rule->isEnabled();
+        
+        // 添加条件
+        JsonArray conditionsArray = ruleJson.createNestedArray("conditions");
+        for (const RuleCondition& cond : rule->getConditions()) {
+            JsonObject condJson = conditionsArray.createNestedObject();
+            condJson["sensorId"] = cond.sensorId;
+            condJson["threshold"] = cond.threshold;
+            condJson["operatorType"] = cond.operatorType;
+        }
+        
+        // 添加动作
+        JsonArray actionsArray = ruleJson.createNestedArray("actions");
+        for (const RuleAction& act : rule->getActions()) {
+            JsonObject actJson = actionsArray.createNestedObject();
+            actJson["deviceId"] = act.deviceId;
+            actJson["targetStatus"] = act.targetStatus;
+        }
+    }
+    
+    doc["status"] = "success";
+    doc["message"] = "获取规则列表成功";
+    sendJsonResponse(request, doc);
+}
+
+// 处理更新规则API请求
+void WebServer::handleUpdateRule(AsyncWebServerRequest* request, const JsonVariantConst& json) {
+    DynamicJsonDocument doc(1024);
+    
+    if (json.containsKey("id") && json.containsKey("name") && json.containsKey("enabled") && json.containsKey("conditions") && json.containsKey("actions")) {
+        String id = json["id"].as<String>();
+        String name = json["name"].as<String>();
+        bool enabled = json["enabled"].as<bool>();
+        
+        // 获取现有规则
+        Rule* rule = ruleEngine.getRule(id);
+        
+        if (rule) {
+            // 更新规则信息
+            rule->setName(name);
+            rule->setEnabled(enabled);
+            
+            // 清空现有条件和动作
+            rule->clearConditions();
+            rule->clearActions();
+            
+            // 添加新条件
+            if (json.containsKey("conditions")) {
+                JsonArrayConst conditions = json["conditions"].as<JsonArrayConst>();
+                for (JsonVariantConst condJson : conditions) {
+                    if (condJson.containsKey("sensorId") && condJson.containsKey("threshold") && condJson.containsKey("operatorType")) {
+                        RuleCondition cond;
+                        cond.sensorId = condJson["sensorId"].as<String>();
+                        cond.threshold = condJson["threshold"].as<float>();
+                        cond.operatorType = condJson["operatorType"].as<String>();
+                        rule->addCondition(cond);
+                    }
+                }
+            }
+            
+            // 添加新动作
+            if (json.containsKey("actions")) {
+                JsonArrayConst actions = json["actions"].as<JsonArrayConst>();
+                for (JsonVariantConst actJson : actions) {
+                    if (actJson.containsKey("deviceId") && actJson.containsKey("targetStatus")) {
+                        RuleAction act;
+                        act.deviceId = actJson["deviceId"].as<String>();
+                        act.targetStatus = actJson["targetStatus"].as<bool>();
+                        rule->addAction(act);
+                    }
+                }
+            }
+            
+            // 保存规则到SPIFFS
+            if (ruleEngine.saveRules()) {
+                doc["status"] = "success";
+                doc["message"] = "规则更新成功";
+                sendJsonResponse(request, doc);
+            } else {
+                doc["status"] = "error";
+                doc["message"] = "规则保存失败";
+                sendJsonResponse(request, doc, 500);
+            }
+        } else {
+            doc["status"] = "error";
+            doc["message"] = "未找到指定规则";
+            sendJsonResponse(request, doc, 404);
+        }
+    } else {
+        doc["status"] = "error";
+        doc["message"] = "参数不完整";
+        sendJsonResponse(request, doc, 400);
+    }
+}
+
+// 处理删除规则API请求
+void WebServer::handleDeleteRule(AsyncWebServerRequest* request) {
+    DynamicJsonDocument doc(1024);
+    
+    if (request->hasParam("id", true)) {
+        String id = request->getParam("id", true)->value();
+        
+        // 删除规则
+        if (ruleEngine.removeRule(id)) {
+            // 保存规则到SPIFFS
+            if (ruleEngine.saveRules()) {
+                doc["status"] = "success";
+                doc["message"] = "规则删除成功";
+                sendJsonResponse(request, doc);
+            } else {
+                doc["status"] = "error";
+                doc["message"] = "规则保存失败";
+                sendJsonResponse(request, doc, 500);
+            }
+        } else {
+            doc["status"] = "error";
+            doc["message"] = "未找到指定规则";
+            sendJsonResponse(request, doc, 404);
+        }
+    } else {
+        doc["status"] = "error";
+        doc["message"] = "缺少参数id";
+        sendJsonResponse(request, doc, 400);
     }
 }

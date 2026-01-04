@@ -6,6 +6,7 @@
 #include "Rule.h"
 #include "devices/DeviceManager.h"
 #include "sensors/EnvironmentManager.h"
+#include "utils/DatabaseManager.h"
 
 /**
  * @brief 规则引擎类，负责管理和评估所有规则
@@ -15,8 +16,9 @@ class RuleEngine {
 public:
     /**
      * @brief 构造函数
+     * @param dbManager 数据库管理器对象
      */
-    RuleEngine();
+    RuleEngine(DatabaseManager& dbManager);
     
     /**
      * @brief 析构函数
@@ -93,6 +95,8 @@ public:
 private:
     // 规则列表
     std::vector<Rule*> rules;
+    // 数据库管理器对象引用
+    DatabaseManager& dbManager;
 };
 
 #endif // RULEENGINE_H

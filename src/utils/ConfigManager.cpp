@@ -3,6 +3,7 @@
 ConfigManager::ConfigManager(SPIFFSStorage& spiffsStorage, String configFilePath) 
     : _spiffsStorage(spiffsStorage), 
       _configFilePath(configFilePath), 
+      _config(2048),
       _loaded(false)
 {
     // 初始化默认配置
@@ -73,6 +74,19 @@ void ConfigManager::resetToDefaults() {
     // 调试配置
     JsonObject debug = _config["debug"].to<JsonObject>();
     debug["mode"] = DEFAULT_DEBUG_MODE;
+    
+    // 数据库配置
+    JsonObject database = _config["database"].to<JsonObject>();
+    database["server"] = "192.168.1.100";
+    database["port"] = 3306;
+    database["username"] = "esp32_user";
+    database["password"] = "esp32_password";
+    database["name"] = "esp32_smarthome";
+    
+    // 管理员账号配置（方案一）
+    JsonObject admin = _config["admin"].to<JsonObject>();
+    admin["username"] = "admin";
+    admin["password"] = "admin123";
 }
 
 String ConfigManager::getWiFiSsid() {
@@ -233,4 +247,60 @@ void ConfigManager::setDebugMode(bool mode) {
 
 JsonDocument& ConfigManager::getFullConfig() {
     return _config;
+}
+
+String ConfigManager::getDatabaseServer() {
+    return _config["database"]["server"].as<String>();
+}
+
+void ConfigManager::setDatabaseServer(const String& server) {
+    _config["database"]["server"] = server;
+}
+
+int ConfigManager::getDatabasePort() {
+    return _config["database"]["port"].as<int>();
+}
+
+void ConfigManager::setDatabasePort(int port) {
+    _config["database"]["port"] = port;
+}
+
+String ConfigManager::getDatabaseUsername() {
+    return _config["database"]["username"].as<String>();
+}
+
+void ConfigManager::setDatabaseUsername(const String& username) {
+    _config["database"]["username"] = username;
+}
+
+String ConfigManager::getDatabasePassword() {
+    return _config["database"]["password"].as<String>();
+}
+
+void ConfigManager::setDatabasePassword(const String& password) {
+    _config["database"]["password"] = password;
+}
+
+String ConfigManager::getDatabaseName() {
+    return _config["database"]["name"].as<String>();
+}
+
+void ConfigManager::setDatabaseName(const String& name) {
+    _config["database"]["name"] = name;
+}
+
+String ConfigManager::getAdminUsername() {
+    return _config["admin"]["username"].as<String>();
+}
+
+void ConfigManager::setAdminUsername(const String& username) {
+    _config["admin"]["username"] = username;
+}
+
+String ConfigManager::getAdminPassword() {
+    return _config["admin"]["password"].as<String>();
+}
+
+void ConfigManager::setAdminPassword(const String& password) {
+    _config["admin"]["password"] = password;
 }

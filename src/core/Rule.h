@@ -75,6 +75,12 @@ public:
     String getId();
     
     /**
+     * @brief 设置规则ID
+     * @param id 规则ID
+     */
+    void setId(String id);
+    
+    /**
      * @brief 获取规则名称
      * @return 规则名称
      */
@@ -91,6 +97,34 @@ public:
      * @param enabled 启用状态
      */
     void setEnabled(bool enabled);
+    
+    /**
+     * @brief 获取规则条件列表
+     * @return 规则条件列表的引用
+     */
+    const std::vector<RuleCondition>& getConditions() const;
+    
+    /**
+     * @brief 获取规则动作列表
+     * @return 规则动作列表的引用
+     */
+    const std::vector<RuleAction>& getActions() const;
+    
+    /**
+     * @brief 设置规则名称
+     * @param name 规则名称
+     */
+    void setName(String name);
+    
+    /**
+     * @brief 清空规则条件列表
+     */
+    void clearConditions();
+    
+    /**
+     * @brief 清空规则动作列表
+     */
+    void clearActions();
     
 private:
     String id;                     // 规则ID

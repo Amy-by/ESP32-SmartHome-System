@@ -1,8 +1,9 @@
 body {
-    font-family: Arial, sans-serif;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
     margin: 0;
     padding: 20px;
-    background-color: #f5f5f5;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    min-height: 100vh;
 }
 .container {
     max-width: 1200px;
@@ -13,17 +14,38 @@ h1 {
     color: #333;
     text-align: center;
     margin-bottom: 30px;
+    font-weight: 700;
+    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
 }
 
 .header {
-    background-color: #4CAF50;
+    background: linear-gradient(135deg, #4CAF50, #45a049);
     color: white;
-    padding: 20px;
-    border-radius: 10px;
+    padding: 25px;
+    border-radius: 15px;
     margin-bottom: 30px;
     display: flex;
     justify-content: space-between;
     align-items: center;
+    box-shadow: 0 8px 20px rgba(76, 175, 80, 0.3);
+    position: relative;
+    overflow: hidden;
+}
+
+.header::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: -100%;
+    width: 100%;
+    height: 100%;
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+    animation: shimmer 3s infinite;
+}
+
+@keyframes shimmer {
+    0% { left: -100%; }
+    100% { left: 100%; }
 }
 
 .wifi-status {
@@ -46,15 +68,50 @@ h1 {
 }
 
 .card {
-    background-color: white;
-    padding: 20px;
-    border-radius: 10px;
-    box-shadow: 0 0 10px rgba(0,0,0,0.1);
+    background: linear-gradient(145deg, #ffffff, #f8f9fa);
+    padding: 25px;
+    border-radius: 15px;
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.1);
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    transition: all 0.3s ease;
+    position: relative;
+    overflow: hidden;
+}
+
+.card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 3px;
+    background: linear-gradient(90deg, #4CAF50, #2196F3, #9C27B0);
+    border-radius: 15px 15px 0 0;
+}
+
+.card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 12px 35px rgba(0, 0, 0, 0.15);
 }
 
 .card h2 {
     color: #333;
     margin-top: 0;
+    font-weight: 600;
+    position: relative;
+    padding-left: 15px;
+}
+
+.card h2::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 4px;
+    height: 20px;
+    background: linear-gradient(145deg, #4CAF50, #2196F3);
+    border-radius: 2px;
     margin-bottom: 20px;
     font-size: 20px;
 }
@@ -67,12 +124,21 @@ h1 {
 
 .device-item {
     margin-bottom: 15px;
-    padding: 15px;
-    background-color: #f9f9f9;
-    border-radius: 5px;
+    padding: 18px;
+    background: linear-gradient(145deg, #f9f9f9, #f0f0f0);
+    border-radius: 12px;
     display: flex;
     justify-content: space-between;
     align-items: center;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+    transition: all 0.3s ease;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.device-item:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.12);
+    background: linear-gradient(145deg, #ffffff, #f8f9fa);
 }
 
 .device-info {
@@ -166,27 +232,43 @@ input:checked + .slider:before {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 15px 20px;
-    background-color: #f9f9f9;
-    border-radius: 8px;
-    transition: background-color 0.2s;
+    padding: 20px 28px;
+    background: linear-gradient(145deg, #f9f9f9, #f0f0f0);
+    border-radius: 12px;
+    transition: all 0.3s ease;
+    margin-bottom: 12px;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
 }
 
 .data-item:hover {
-    background-color: #f0f0f0;
+    background: linear-gradient(145deg, #ffffff, #f8f9fa);
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.12);
+    transform: translateY(-2px);
 }
 
 .data-value {
-    font-size: 18px;
-    font-weight: bold;
-    color: #333;
+    font-size: 24px;
+    font-weight: 600;
+    color: #4CAF50;
     margin-bottom: 0;
+    padding: 8px 16px;
+    background: linear-gradient(145deg, #ffffff, #f8f9fa);
+    border-radius: 8px;
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    border: 1px solid rgba(76, 175, 80, 0.2);
+    transition: all 0.3s ease;
+}
+
+.data-value:hover {
+    transform: scale(1.05);
+    box-shadow: 0 6px 16px rgba(0, 0, 0, 0.15);
 }
 
 .data-label {
-    font-size: 16px;
-    color: #555;
-    font-weight: 500;
+    font-size: 18px;
+    color: #333;
+    font-weight: 600;
 }
 
 .status-bar {
@@ -200,18 +282,23 @@ input:checked + .slider:before {
 }
 
 .update-button {
-    background-color: #2196F3;
+    background: linear-gradient(145deg, #2196F3, #1976D2);
     color: white;
     border: none;
-    padding: 10px 20px;
-    border-radius: 5px;
+    padding: 12px 24px;
+    border-radius: 8px;
     cursor: pointer;
     font-size: 14px;
+    font-weight: 500;
     margin-bottom: 20px;
+    box-shadow: 0 4px 12px rgba(33, 150, 243, 0.3);
+    transition: all 0.3s ease;
 }
 
 .update-button:hover {
-    background-color: #0b7dda;
+    background: linear-gradient(145deg, #1976D2, #1565C0);
+    transform: translateY(-1px);
+    box-shadow: 0 6px 16px rgba(33, 150, 243, 0.4);
 }
 
 .full-width-input {
@@ -247,23 +334,32 @@ input:checked + .slider:before {
 /* 导航栏样式 */
 .navbar {
     display: flex;
-    gap: 10px;
-    margin-bottom: 20px;
-    background-color: white;
-    padding: 10px;
-    border-radius: 10px;
-    box-shadow: 0 0 10px rgba(0,0,0,0.1);
+    gap: 8px;
+    margin-bottom: 25px;
+    background: linear-gradient(145deg, #ffffff, #f0f0f0);
+    padding: 12px;
+    border-radius: 15px;
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.1);
+    z-index: 1000;
+    position: relative;
+    width: calc(100% - 24px);
+    overflow: visible;
+    border: 1px solid rgba(255, 255, 255, 0.3);
 }
 
 .nav-button {
-    background-color: #e0e0e0;
+    background: linear-gradient(145deg, #f5f5f5, #e0e0e0);
     color: #333;
     border: none;
-    padding: 10px 20px;
-    border-radius: 5px;
+    padding: 12px 24px;
+    border-radius: 10px;
     cursor: pointer;
     font-size: 14px;
-    transition: background-color 0.3s;
+    font-weight: 500;
+    transition: all 0.3s ease;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    position: relative;
+    overflow: hidden;
 }
 
 .nav-button:hover {
@@ -305,4 +401,221 @@ input:checked + .slider:before {
     gap: 15px;
     margin-top: 30px;
     justify-content: center;
+}
+
+/* 登录页面样式 */
+.login-container {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 500px;
+}
+
+.login-container .card {
+    width: 400px;
+    max-width: 90%;
+}
+
+.form-group {
+    margin-bottom: 15px;
+}
+
+.form-group label {
+    display: block;
+    margin-bottom: 5px;
+    font-weight: bold;
+    color: #333;
+}
+
+.form-actions {
+    margin-top: 20px;
+    text-align: center;
+}
+
+.error-message {
+    color: #f44336;
+    margin-top: 10px;
+    font-size: 14px;
+}
+
+/* 数据库管理页面样式 */
+.admin-container {
+    position: relative;
+}
+
+.logout-button {
+    position: absolute;
+    top: 0;
+    right: 0;
+    background-color: #f44336;
+    color: white;
+    border: none;
+    padding: 8px 15px;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 14px;
+}
+
+.logout-button:hover {
+    background-color: #d32f2f;
+}
+
+.admin-section {
+    margin-bottom: 30px;
+}
+
+.admin-section h3 {
+    font-size: 18px;
+    margin-top: 0;
+    margin-bottom: 15px;
+    color: #555;
+}
+
+.filter-options {
+    margin-bottom: 15px;
+    display: flex;
+    gap: 10px;
+    align-items: center;
+}
+
+.device-list-admin {
+    margin-top: 20px;
+}
+
+.device-item-admin {
+    margin-bottom: 15px;
+    padding: 15px;
+    background-color: #f9f9f9;
+    border-radius: 5px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.device-info-admin {
+    flex: 1;
+}
+
+.device-name-admin {
+    font-weight: bold;
+    margin-bottom: 5px;
+}
+
+.device-type-admin, .device-pin-admin, .device-status-admin {
+    font-size: 14px;
+    color: #666;
+    margin-bottom: 3px;
+}
+
+.device-actions-admin {
+    display: flex;
+    gap: 10px;
+}
+
+.edit-button {
+    background-color: #2196F3;
+    color: white;
+    border: none;
+    padding: 8px 15px;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 14px;
+}
+
+.edit-button:hover {
+    background-color: #0b7dda;
+}
+
+.delete-button {
+    background-color: #f44336;
+    color: white;
+    border: none;
+    padding: 8px 15px;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 14px;
+}
+
+.delete-button:hover {
+    background-color: #d32f2f;
+}
+
+.cancel-button {
+    background-color: #9E9E9E;
+    color: white;
+    border: none;
+    padding: 10px 20px;
+    border-radius: 5px;
+    cursor: pointer;
+    font-size: 14px;
+    margin-left: 10px;
+}
+
+.cancel-button:hover {
+    background-color: #757575;
+}
+
+.empty-list {
+    text-align: center;
+    color: #666;
+    padding: 20px;
+    background-color: #f9f9f9;
+    border-radius: 5px;
+}
+
+.sensor-data-list {
+    margin-top: 20px;
+}
+
+.sensor-data-table {
+    width: 100%;
+    border-collapse: collapse;
+    background-color: white;
+    border-radius: 5px;
+    overflow: hidden;
+    box-shadow: 0 0 10px rgba(0,0,0,0.1);
+}
+
+.sensor-data-table th,
+.sensor-data-table td {
+    padding: 12px 15px;
+    text-align: left;
+    border-bottom: 1px solid #e0e0e0;
+}
+
+.sensor-data-table th {
+    background-color: #f5f5f5;
+    font-weight: bold;
+    color: #333;
+}
+
+.sensor-data-table tr:hover {
+    background-color: #f9f9f9;
+}
+
+/* 响应式设计 */
+@media (max-width: 768px) {
+    .navbar {
+        flex-wrap: wrap;
+        justify-content: center;
+    }
+    
+    .device-item-admin {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+    
+    .device-actions-admin {
+        margin-top: 15px;
+        align-self: flex-end;
+    }
+    
+    .filter-options {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+    
+    .login-container .card {
+        width: 100%;
+    }
 }

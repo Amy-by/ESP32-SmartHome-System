@@ -45,6 +45,21 @@ document.addEventListener('DOMContentLoaded', function() {
 
 // 页面切换功能
 function showPage(pageId) {
+    // 检查是否需要登录权限
+    if (pageId === 'admin') {
+        // 检查是否已登录
+        const isLoggedIn = localStorage.getItem('isLoggedIn') === 'true';
+        if (!isLoggedIn) {
+            // 未登录，跳转到登录页面
+            const pages = document.querySelectorAll('.page');
+            pages.forEach(page => {
+                page.style.display = 'none';
+            });
+            document.getElementById('login').style.display = 'block';
+            return;
+        }
+    }
+    
     // 隐藏所有页面
     const pages = document.querySelectorAll('.page');
     pages.forEach(page => {
@@ -96,29 +111,6 @@ function loadConfig() {
             document.getElementById('gateway').value = config.wifi.static_ip.gateway || '';
             document.getElementById('subnet-mask').value = config.wifi.static_ip.subnet_mask || '';
             document.getElementById('dns-server').value = config.wifi.static_ip.dns_server || '';
-            
-            // 加载传感器配置
-            document.getElementById('sensor-update-interval').value = config.sensors.update_interval || 1000;
-            document.getElementById('temperature-threshold').value = config.sensors.temperature_threshold || 28.0;
-            document.getElementById('humidity-threshold').value = config.sensors.humidity_threshold || 70.0;
-            document.getElementById('light-threshold').value = config.sensors.light_threshold || 500;
-            document.getElementById('smoke-threshold').value = config.sensors.smoke_threshold || 500;
-            
-            // 加载设备配置
-            document.getElementById('device-polling-interval').value = config.devices.polling_interval || 500;
-            
-            // 加载存储配置
-            document.getElementById('max-log-size').value = config.storage.max_log_size || 102400;
-            
-            // 加载Web服务器配置
-            document.getElementById('web-server-port').value = config.web.port || 80;
-            
-            // 加载告警配置
-            document.getElementById('alarm-duration').value = config.alarm.duration || 30;
-            document.getElementById('alarm-enabled').checked = config.alarm.enabled || false;
-            
-            // 加载调试配置
-            document.getElementById('debug-mode').checked = config.debug.mode || false;
         }
     })
     .catch(err => {
@@ -139,29 +131,6 @@ function saveConfig() {
                 subnet_mask: document.getElementById('subnet-mask').value,
                 dns_server: document.getElementById('dns-server').value
             }
-        },
-        sensors: {
-            update_interval: parseInt(document.getElementById('sensor-update-interval').value),
-            temperature_threshold: parseFloat(document.getElementById('temperature-threshold').value),
-            humidity_threshold: parseFloat(document.getElementById('humidity-threshold').value),
-            light_threshold: parseInt(document.getElementById('light-threshold').value),
-            smoke_threshold: parseInt(document.getElementById('smoke-threshold').value)
-        },
-        devices: {
-            polling_interval: parseInt(document.getElementById('device-polling-interval').value)
-        },
-        storage: {
-            max_log_size: parseInt(document.getElementById('max-log-size').value)
-        },
-        web: {
-            port: parseInt(document.getElementById('web-server-port').value)
-        },
-        alarm: {
-            duration: parseInt(document.getElementById('alarm-duration').value),
-            enabled: document.getElementById('alarm-enabled').checked
-        },
-        debug: {
-            mode: document.getElementById('debug-mode').checked
         }
     };
     
@@ -173,14 +142,14 @@ function saveConfig() {
     .then(response => response.json())
     .then(data => {
         if (data.status === 'success') {
-            alert('配置保存成功！');
+            alert('WiFi配置保存成功！');
         } else {
-            alert('配置保存失败：' + (data.message || '未知错误'));
+            alert('WiFi配置保存失败：' + (data.message || '未知错误'));
         }
     })
     .catch(err => {
-        console.error('保存配置失败:', err);
-        alert('配置保存失败，请检查网络连接！');
+        console.error('保存WiFi配置失败:', err);
+        alert('WiFi配置保存失败，请检查网络连接！');
     });
 }
 function initializeWebSocket() {
@@ -471,4 +440,379 @@ function beepOnce(deviceId, duration) {
     setTimeout(() => {
         controlDevice(deviceId, { status: false });
     }, typeof duration === 'number' ? duration : 500);
+}
+
+// 环境数据更新函数
+function updateEnvironmentData() {
+    fetch('/api/environment', { cache: 'no-store' })
+        .then(response => response.json())
+        .then(data => {
+            if (data.status === 'success') {
+                const environmentData = document.getElementById('environment-data');
+                if (!environmentData) return;
+                
+                environmentData.innerHTML = '';
+                const env = data.environment;
+                
+                // 温度
+                if (env.temperature !== null && env.temperature !== undefined) {
+                    const tempEl = document.createElement('div');
+                    tempEl.className = 'data-item';
+                    tempEl.innerHTML = `
+                        <div class="data-label">温度</div>
+                        <div class="data-value" id="temperature">${env.temperature.toFixed(1)}°C</div>
+                    `;
+                    environmentData.appendChild(tempEl);
+                }
+                
+                // 湿度
+                if (env.humidity !== null && env.humidity !== undefined) {
+                    const humiEl = document.createElement('div');
+                    humiEl.className = 'data-item';
+                    humiEl.innerHTML = `
+                        <div class="data-label">湿度</div>
+                        <div class="data-value" id="humidity">${env.humidity.toFixed(1)}%</div>
+                    `;
+                    environmentData.appendChild(humiEl);
+                }
+                
+                // 光照强度
+                if (env.light !== null && env.light !== undefined) {
+                    const lightEl = document.createElement('div');
+                    lightEl.className = 'data-item';
+                    lightEl.innerHTML = `
+                        <div class="data-label">光照</div>
+                        <div class="data-value" id="light">${env.light.toFixed(0)} lux</div>
+                    `;
+                    environmentData.appendChild(lightEl);
+                }
+                
+                // 烟雾浓度
+                if (env.smoke !== null && env.smoke !== undefined) {
+                    const smokeEl = document.createElement('div');
+                    smokeEl.className = 'data-item';
+                    smokeEl.innerHTML = `
+                        <div class="data-label">烟雾</div>
+                        <div class="data-value" id="smoke">${env.smoke.toFixed(1)} ppm</div>
+                    `;
+                    environmentData.appendChild(smokeEl);
+                }
+            }
+        })
+        .catch(err => console.error('获取环境数据失败:', err));
+}
+
+// 最后更新时间
+function updateLastUpdateTime() {
+    const timeEl = document.getElementById('last-update-time');
+    if (timeEl) {
+        timeEl.textContent = new Date().toLocaleString('zh-CN');
+    }
+}
+
+// 告警设置更新
+function updateAlarmSettings() {
+    fetch('/api/alarm', { cache: 'no-store' })
+        .then(response => response.json())
+        .then(data => {
+            if (data.status === 'success') {
+                const alarm = data.alarm;
+                const minEl = document.getElementById('smoke-min');
+                const maxEl = document.getElementById('smoke-max');
+                const enabledEl = document.getElementById('smoke-enabled-select');
+                const currentEl = document.getElementById('smoke-current');
+                
+                if (minEl) minEl.value = alarm.minThreshold || 100;
+                if (maxEl) maxEl.value = alarm.maxThreshold || 1000;
+                if (enabledEl) enabledEl.value = alarm.enabled ? '1' : '0';
+                
+                // 更新当前设置状态
+                if (currentEl) {
+                    const enabled = alarm.enabled ? '已启用' : '已禁用';
+                    currentEl.textContent = `最小: ${alarm.minThreshold || 0}, 最大: ${alarm.maxThreshold || 500}, 状态: ${enabled}`;
+                }
+            }
+        })
+        .catch(err => console.error('获取告警设置失败:', err));
+}
+
+// 烟雾阈值保存
+function saveSmokeThreshold() {
+    const minInput = document.getElementById('smoke-min');
+    const maxInput = document.getElementById('smoke-max');
+    const enSelect = document.getElementById('smoke-enabled-select');
+    const minThreshold = Number(minInput?.value);
+    const maxThreshold = Number(maxInput?.value);
+    const enabled = (enSelect && enSelect.value === '1');
+    const body = {
+        sensorId: 'smoke',
+        minThreshold: isNaN(minThreshold) ? -1 : minThreshold,
+        maxThreshold: isNaN(maxThreshold) ? -1 : maxThreshold,
+        enabled: enabled
+    };
+    fetch('/api/alarm', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body)
+    })
+    .then(r => r.json())
+    .then(() => updateAlarmSettings())
+    .catch(err => console.error('保存烟雾阈值失败:', err));
+}
+
+// 登录功能
+function login() {
+    const username = document.getElementById('login-username').value;
+    const password = document.getElementById('login-password').value;
+    const errorDiv = document.getElementById('login-error');
+    
+    // 检查输入
+    if (!username || !password) {
+        errorDiv.textContent = '请输入用户名和密码';
+        return;
+    }
+    
+    // 发送登录请求
+    fetch('/api/admin/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ username, password })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.status === 'success') {
+            // 登录成功
+            localStorage.setItem('isLoggedIn', 'true');
+            localStorage.setItem('username', username);
+            
+            // 跳转到数据库管理页面
+            showPage('admin');
+            
+            // 初始化数据库管理页面
+            initAdminPage();
+        } else {
+            // 登录失败
+            errorDiv.textContent = data.message || '登录失败，请检查用户名和密码';
+        }
+    })
+    .catch(err => {
+        console.error('登录请求失败:', err);
+        errorDiv.textContent = '登录失败，请检查网络连接';
+    });
+}
+
+// 退出功能
+function logout() {
+    // 清除登录状态
+    localStorage.removeItem('isLoggedIn');
+    localStorage.removeItem('username');
+    
+    // 跳转到登录页面
+    showPage('devices');
+}
+
+// 显示添加设备表单
+function showAddDeviceForm() {
+    document.getElementById('add-device-form').style.display = 'block';
+}
+
+// 隐藏添加设备表单
+function hideAddDeviceForm() {
+    document.getElementById('add-device-form').style.display = 'none';
+}
+
+// 添加设备
+function addDevice() {
+    const name = document.getElementById('new-device-name').value;
+    const type = document.getElementById('new-device-type').value;
+    const pin = document.getElementById('new-device-pin').value;
+    
+    // 检查输入
+    if (!name || !type || !pin) {
+        alert('请填写所有字段');
+        return;
+    }
+    
+    // 发送添加设备请求
+    fetch('/api/admin/devices', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, type, pin })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.status === 'success') {
+            // 添加成功
+            alert('设备添加成功');
+            hideAddDeviceForm();
+            
+            // 刷新设备列表
+            refreshAdminDevices();
+        } else {
+            // 添加失败
+            alert('设备添加失败: ' + (data.message || '未知错误'));
+        }
+    })
+    .catch(err => {
+        console.error('添加设备请求失败:', err);
+        alert('设备添加失败，请检查网络连接');
+    });
+}
+
+// 筛选传感器数据
+function filterSensorData() {
+    const sensorType = document.getElementById('sensor-type-filter').value;
+    
+    // 发送筛选请求
+    fetch('/api/admin/sensor-data?type=' + (sensorType || ''), {
+        method: 'GET',
+        headers: { 'Content-Type': 'application/json' }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.status === 'success') {
+            // 更新传感器数据列表
+            updateSensorDataList(data.sensorData);
+        } else {
+            alert('获取传感器数据失败: ' + (data.message || '未知错误'));
+        }
+    })
+    .catch(err => {
+        console.error('获取传感器数据请求失败:', err);
+        alert('获取传感器数据失败，请检查网络连接');
+    });
+}
+
+// 初始化数据库管理页面
+function initAdminPage() {
+    // 加载设备列表
+    refreshAdminDevices();
+    
+    // 加载传感器数据
+    filterSensorData();
+}
+
+// 刷新设备列表
+function refreshAdminDevices() {
+    fetch('/api/admin/devices', {
+        method: 'GET',
+        headers: { 'Content-Type': 'application/json' }
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.status === 'success') {
+            updateDeviceListAdmin(data.devices);
+        } else {
+            alert('获取设备列表失败: ' + (data.message || '未知错误'));
+        }
+    })
+    .catch(err => {
+        console.error('获取设备列表请求失败:', err);
+        alert('获取设备列表失败，请检查网络连接');
+    });
+}
+
+// 更新设备列表
+function updateDeviceListAdmin(devices) {
+    const deviceList = document.getElementById('device-list-admin');
+    deviceList.innerHTML = '';
+    
+    if (devices.length === 0) {
+        deviceList.innerHTML = '<div class="empty-list">暂无设备</div>';
+        return;
+    }
+    
+    devices.forEach(device => {
+        const deviceItem = document.createElement('div');
+        deviceItem.className = 'device-item-admin';
+        
+        deviceItem.innerHTML = `
+            <div class="device-info-admin">
+                <div class="device-name-admin">${device.name || device.id}</div>
+                <div class="device-type-admin">类型: ${device.type}</div>
+                <div class="device-pin-admin">GPIO引脚: ${device.pin}</div>
+                <div class="device-status-admin">状态: ${device.status ? '开启' : '关闭'}</div>
+            </div>
+            <div class="device-actions-admin">
+                <button class="edit-button" onclick="editDevice('${device.id}')">编辑</button>
+                <button class="delete-button" onclick="deleteDevice('${device.id}')">删除</button>
+            </div>
+        `;
+        
+        deviceList.appendChild(deviceItem);
+    });
+}
+
+// 更新传感器数据列表
+function updateSensorDataList(data) {
+    const sensorDataList = document.getElementById('sensor-data-list');
+    sensorDataList.innerHTML = '';
+    
+    if (data.length === 0) {
+        sensorDataList.innerHTML = '<div class="empty-list">暂无传感器数据</div>';
+        return;
+    }
+    
+    // 创建表格
+    const table = document.createElement('table');
+    table.className = 'sensor-data-table';
+    
+    // 创建表头
+    const thead = document.createElement('thead');
+    thead.innerHTML = `
+        <tr>
+            <th>ID</th>
+            <th>类型</th>
+            <th>值</th>
+            <th>单位</th>
+            <th>时间</th>
+        </tr>
+    `;
+    table.appendChild(thead);
+    
+    // 创建表体
+    const tbody = document.createElement('tbody');
+    data.forEach(item => {
+        const row = document.createElement('tr');
+        row.innerHTML = `
+            <td>${item.id}</td>
+            <td>${item.type}</td>
+            <td>${item.value}</td>
+            <td>${item.unit || ''}</td>
+            <td>${new Date(item.timestamp).toLocaleString('zh-CN')}</td>
+        `;
+        tbody.appendChild(row);
+    });
+    table.appendChild(tbody);
+    
+    sensorDataList.appendChild(table);
+}
+
+// 编辑设备
+function editDevice(deviceId) {
+    // 这里可以实现编辑设备的功能
+    alert('编辑设备功能将在后续实现');
+}
+
+// 删除设备
+function deleteDevice(deviceId) {
+    if (confirm('确定要删除此设备吗？')) {
+        fetch(`/api/admin/devices/${deviceId}`, {
+            method: 'DELETE',
+            headers: { 'Content-Type': 'application/json' }
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.status === 'success') {
+                alert('设备删除成功');
+                refreshAdminDevices();
+            } else {
+                alert('设备删除失败: ' + (data.message || '未知错误'));
+            }
+        })
+        .catch(err => {
+            console.error('删除设备请求失败:', err);
+            alert('设备删除失败，请检查网络连接');
+        });
+    }
 }

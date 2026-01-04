@@ -18,32 +18,118 @@
         
         <!-- 导航栏 -->
         <div class="navbar">
-            <button class="nav-button active" onclick="showPage('dashboard')">首页</button>
+            <button class="nav-button active" onclick="showPage('devices')">设备控制</button>
+            <button class="nav-button" onclick="showPage('environment')">环境监测</button>
+            <button class="nav-button" onclick="showPage('alarm')">告警设置</button>
             <button class="nav-button" onclick="showPage('config')">配置</button>
+            <button class="nav-button" onclick="showPage('admin')">数据库管理</button>
         </div>
         
-        <!-- 首页内容 -->
-        <div id="dashboard" class="page">
-            <button class="update-button" onclick="refreshAll()">手动刷新</button>
+        <!-- 登录页面 -->
+        <div id="login" class="page" style="display: none;">
+            <div class="login-container">
+                <div class="card">
+                    <h2>管理员登录</h2>
+                    <div class="form-group">
+                        <label for="login-username">用户名</label>
+                        <input type="text" id="login-username" class="full-width-input" placeholder="输入管理员用户名" value="admin">
+                    </div>
+                    <div class="form-group">
+                        <label for="login-password">密码</label>
+                        <input type="password" id="login-password" class="full-width-input" placeholder="输入管理员密码" value="admin123">
+                    </div>
+                    <div class="form-actions">
+                        <button class="update-button" onclick="login()">登录</button>
+                        <div id="login-error" class="error-message"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
         
-        <div class="dashboard">
-            <!-- 设备控制区域 -->
+        <!-- 数据库管理页面 -->
+        <div id="admin" class="page" style="display: none;">
+            <div class="admin-container">
+                <button class="logout-button" onclick="logout()">退出登录</button>
+                <div class="card">
+                    <h2>数据库管理</h2>
+                    <div class="admin-section">
+                        <h3>设备管理</h3>
+                        <button class="update-button" onclick="showAddDeviceForm()">添加设备</button>
+                        <div id="device-list-admin" class="device-list-admin">
+                            <!-- 设备列表将通过JavaScript动态生成 -->
+                        </div>
+                    </div>
+                    
+                    <div class="admin-section">
+                        <h3>传感器数据</h3>
+                        <div class="filter-options">
+                            <select id="sensor-type-filter">
+                                <option value="">所有传感器类型</option>
+                                <option value="temperature">温度</option>
+                                <option value="humidity">湿度</option>
+                                <option value="light">光照</option>
+                                <option value="smoke">烟雾</option>
+                            </select>
+                            <button class="update-button" onclick="filterSensorData()">筛选</button>
+                        </div>
+                        <div id="sensor-data-list" class="sensor-data-list">
+                            <!-- 传感器数据将通过JavaScript动态生成 -->
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- 添加设备表单 -->
+                <div id="add-device-form" class="card" style="display: none;">
+                    <h3>添加新设备</h3>
+                    <div class="form-group">
+                        <label for="new-device-name">设备名称</label>
+                        <input type="text" id="new-device-name" class="full-width-input" placeholder="输入设备名称">
+                    </div>
+                    <div class="form-group">
+                        <label for="new-device-type">设备类型</label>
+                        <select id="new-device-type" class="full-width-input">
+                            <option value="light">智能灯</option>
+                            <option value="switch">智能开关</option>
+                            <option value="buzzer">蜂鸣器</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="new-device-pin">GPIO引脚</label>
+                        <input type="number" id="new-device-pin" class="full-width-input" placeholder="输入GPIO引脚号">
+                    </div>
+                    <div class="form-actions">
+                        <button class="update-button" onclick="addDevice()">保存</button>
+                        <button class="cancel-button" onclick="hideAddDeviceForm()">取消</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- 设备控制页面 -->
+        <div id="devices" class="page">
+            <button class="update-button" onclick="refreshAll()">手动刷新</button>
             <div class="card">
                 <h2>设备控制</h2>
                 <ul id="device-list" class="device-list">
                     <!-- 设备列表将通过JavaScript动态生成 -->
                 </ul>
             </div>
-            
-            <!-- 环境监测区域 -->
+        </div>
+        
+        <!-- 环境监测页面 -->
+        <div id="environment" class="page" style="display: none;">
+            <button class="update-button" onclick="refreshAll()">手动刷新</button>
             <div class="card">
                 <h2>环境监测</h2>
                 <div id="environment-data" class="environment-data">
                     <!-- 环境数据将通过JavaScript动态生成 -->
                 </div>
             </div>
-            
-            <!-- 告警设置区域 -->
+        </div>
+        
+        <!-- 告警设置页面 -->
+        <div id="alarm" class="page" style="display: none;">
+            <button class="update-button" onclick="refreshAll()">手动刷新</button>
             <div class="card">
                 <h2>告警设置</h2>
                 <div id="alarm-settings">
@@ -90,8 +176,6 @@
                 </div>
             </div>
         </div>
-        
-        </div>
     </div>
     
     <!-- 配置页面内容 -->
@@ -132,86 +216,6 @@
                     <div class="config-group">
                         <label for="dns-server">DNS服务器</label>
                         <input type="text" id="dns-server" class="full-width-input" placeholder="输入DNS服务器地址">
-                    </div>
-                </div>
-            </div>
-            
-            <!-- 传感器配置区域 -->
-            <div class="card">
-                <h2>传感器配置</h2>
-                <div class="config-group">
-                    <label for="sensor-update-interval">传感器更新间隔 (毫秒)</label>
-                    <input type="number" id="sensor-update-interval" class="full-width-input" min="100" step="100">
-                </div>
-                <div class="config-group">
-                    <label for="temperature-threshold">温度告警阈值 (℃)</label>
-                    <input type="number" id="temperature-threshold" class="full-width-input" step="0.1">
-                </div>
-                <div class="config-group">
-                    <label for="humidity-threshold">湿度告警阈值 (%)</label>
-                    <input type="number" id="humidity-threshold" class="full-width-input" step="0.1">
-                </div>
-                <div class="config-group">
-                    <label for="light-threshold">光照告警阈值 (lx)</label>
-                    <input type="number" id="light-threshold" class="full-width-input" min="0">
-                </div>
-                <div class="config-group">
-                    <label for="smoke-threshold">烟雾告警阈值 (ppm)</label>
-                    <input type="number" id="smoke-threshold" class="full-width-input" min="0">
-                </div>
-            </div>
-            
-            <!-- 设备配置区域 -->
-            <div class="card">
-                <h2>设备配置</h2>
-                <div class="config-group">
-                    <label for="device-polling-interval">设备轮询间隔 (毫秒)</label>
-                    <input type="number" id="device-polling-interval" class="full-width-input" min="100" step="100">
-                </div>
-            </div>
-            
-            <!-- 存储配置区域 -->
-            <div class="card">
-                <h2>存储配置</h2>
-                <div class="config-group">
-                    <label for="max-log-size">最大日志大小 (字节)</label>
-                    <input type="number" id="max-log-size" class="full-width-input" min="1024">
-                </div>
-            </div>
-            
-            <!-- Web服务器配置区域 -->
-            <div class="card">
-                <h2>Web服务器配置</h2>
-                <div class="config-group">
-                    <label for="web-server-port">Web服务器端口</label>
-                    <input type="number" id="web-server-port" class="full-width-input" min="1" max="65535">
-                </div>
-            </div>
-            
-            <!-- 告警配置区域 -->
-            <div class="card">
-                <h2>告警配置</h2>
-                <div class="config-group">
-                    <label for="alarm-duration">告警持续时间 (秒)</label>
-                    <input type="number" id="alarm-duration" class="full-width-input" min="1">
-                </div>
-                <div class="config-group">
-                    <label class="control-label">告警启用</label>
-                    <div style="display: flex; align-items: center;">
-                        <input type="checkbox" id="alarm-enabled" checked>
-                        <label for="alarm-enabled" style="margin-left: 10px;">启用告警</label>
-                    </div>
-                </div>
-            </div>
-            
-            <!-- 调试配置区域 -->
-            <div class="card">
-                <h2>调试配置</h2>
-                <div class="config-group">
-                    <label class="control-label">调试模式</label>
-                    <div style="display: flex; align-items: center;">
-                        <input type="checkbox" id="debug-mode">
-                        <label for="debug-mode" style="margin-left: 10px;">启用调试模式</label>
                     </div>
                 </div>
             </div>
